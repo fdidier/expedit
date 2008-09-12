@@ -102,6 +102,11 @@ void dec_screen_p(uchar c)
 // swap file : diff like
 // format:
 
+#define  swap_buff_size 10 
+string   swap_filename;
+ofstream swap_stream;
+int      swap_index;
+
 vector<char>    undo_stack;
 
 void output_position() 
@@ -153,6 +158,16 @@ void undo_flush()
         //undo_stack.pb(EOL);
     }
     saved_pos=-1;
+
+    // write to the swap file if more than 
+    // swap_buff_size new chars
+    if ( undo_stack.sz-swap_index > swap_buff_size) {
+        while (swap_index < undo_stack.sz) {
+            swap_stream << undo_stack[swap_index];
+            swap_index++;
+        }
+        swap_stream.flush();
+    }
 }
 
 void text_putchar(int c) 
@@ -363,12 +378,6 @@ int text_line_begin(int l)
  *        I can do stat on how the user behave...
  */
 
-#define  swap_buff_size 10 
-string   swap_filename;
-ofstream swap_stream;
-char     swap_buffer[swap_buff_size];
-int      swap_index;
-
 int base_pos;
 int mod_base_pos=0;
 /* After a jump or a delete or ...
@@ -424,12 +433,12 @@ int text_getchar()
 
     /* If the buffer is full write it 
      * If u want less disk access (laptop?) increase the size */
-   if (swap_index  == swap_buff_size) {
+// if (swap_index  == swap_buff_size) {
 //      swap_stream.write(swap_buffer,swap_buff_size); 
         /* Force output ? maybe directly use c++ buffer ... */
 //        swap_stream.flush();
-        swap_index=0;
-    }
+//      swap_index=0;
+//  }
 
     /* utf8 encoding, do not refresh before we have the full char */
     if (pending==0) text_refresh();
@@ -450,7 +459,7 @@ int text_getchar()
     }
 
     /* save the typed char and return it */
-    swap_buffer[swap_index++] = res;
+//  swap_buffer[swap_index++] = res;
     return res;
 }
 
@@ -1087,13 +1096,8 @@ int main(int argc, char **argv)
 
     /* Open swap file */
     swap_index = 0;
-    {
-        int t=time(NULL);
-        SS  conv;
-        conv << t << ".";
-        swap_filename = conv.str() + string(argv[1]) + string(".swp"); 
-    }
-    swap_stream.open(swap_filename.c_str());
+    swap_filename = "." + string(argv[1]) + string(".swp"); 
+    swap_stream.open(swap_filename.c_str(),ios_base::trunc);
     if (!swap_stream) {
         printf("Error openning swap file %s\n", swap_filename.c_str());
         exit(0);
@@ -1130,14 +1134,21 @@ int main(int argc, char **argv)
 
     record_undo=1;
     mainloop();
+    
+    // output the end of the undo_stack in the swap file
     undo_flush();
+    while (swap_index<undo_stack.sz) {
+        swap_stream << undo_stack[swap_index];
+        swap_index++;
+    }
 
-    fi (undo_stack.sz) swap_stream.put(undo_stack[i]);
-
+    // output the current file position 
+    // for later use when we open the same file
     swap_stream.put('\t');
     swap_stream << text_gap;
     swap_stream.put(EOL);
     swap_stream.flush();
     swap_stream.close();
+    
     exit(0);
 }
