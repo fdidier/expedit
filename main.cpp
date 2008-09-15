@@ -17,10 +17,6 @@ int          text_blocsize = 1024;
 int          screen_p;  // position in the line
 int          screen_l;  // line position on screen
 
-int record_undo;
-int saved_pos;
-int  old_gap;
-char old_op;
         
 void dump_error(char *err) {
     fprintf(stderr,"err: ");
@@ -44,11 +40,13 @@ void text_check(int l)
     text_end = text.sz;
 }
 
+int undo_number;
+int record_undo;
+int saved_pos;
+
 void text_init() 
 {
     saved_pos=-1;
-    old_gap=-1;
-    old_op='?';
 
     screen_p=0;
     screen_l=0;
@@ -98,30 +96,21 @@ void dec_screen_p(uchar c)
     }
 }
 
-/****************** todo *********/
-// swap file : diff like
-// format:
-
-#define  swap_buff_size 10 
-string   swap_filename;
-ofstream swap_stream;
-int      swap_index;
-
-vector<char>    undo_stack;
-
-void output_position() 
-{
-    SS t;
-    t << text_gap;
-    string s=t.str();
-    fi (s.sz) undo_stack.pb(s[i]);
-//  undo_stack.pb(EOL);
-}
-
 void edit_text() {
     text_modif++;
     text_saved=0;
 }
+
+// ***************************
+// undo stuff.
+
+struct s_undo {
+	int pos;
+	int num;
+	string content;
+};
+
+vector<struct s_undo>    undo_stack;
 
 void undo_flush() 
 {
@@ -130,44 +119,24 @@ void undo_flush()
     {
         if (text_gap == saved_pos) return;
 
-        char c;
-        if (saved_pos<text_gap) c='+';
-        else c='-';
-    
-        // combine combinable operation
-        int output=1;
-        if (c=='-' && old_op=='-' && old_gap==text_gap) output=0;
-        if (c=='+' && old_op=='+' && old_gap==saved_pos) output=0;
-
-        if (output) {
-            undo_stack.pb('\t');
-            output_position();
-            undo_stack.pb(c);
-        }
-
-        old_op=c;
-        old_gap=text_gap;
+		struct s_undo op;
+		op.num = undo_number;
+        if (saved_pos<text_gap) 
+			op.pos = + text_gap;
+        else 
+			op.pos = - text_gap;
 
         int b=min(text_gap,saved_pos);
         int e=max(text_gap,saved_pos);
 
         while (b<e) {
-            undo_stack.pb(text[b]);
+            op.content.pb(text[b]);
             b++;
         }
-        //undo_stack.pb(EOL);
+
+        undo_stack.pb(op);
     }
     saved_pos=-1;
-
-    // write to the swap file if more than 
-    // swap_buff_size new chars
-    if ( undo_stack.sz-swap_index > swap_buff_size) {
-        while (swap_index < undo_stack.sz) {
-            swap_stream << undo_stack[swap_index];
-            swap_index++;
-        }
-        swap_stream.flush();
-    }
 }
 
 void text_putchar(int c) 
@@ -190,7 +159,7 @@ void text_putchar(int c)
 // tab control n'est pas nécessairement
 // un problème pour undo si tout se passe
 // pareil quand on refait le truc ??
-void text_backspace() 
+void text_backspace(int flag=1) 
 {
     if (text_gap==0) return;
     
@@ -201,7 +170,7 @@ void text_backspace()
 
     do {
         text_gap--;
-    } while (text_gap>0 && !isok((uchar) text[text_gap])); 
+    } while (flag && text_gap>0 && !isok((uchar) text[text_gap])); 
 
     dec_screen_p(text[text_gap]);
     if (text[text_gap]==EOL) {
@@ -211,6 +180,7 @@ void text_backspace()
 
 
     // respect indent on the rest of the line if necessary
+	if (flag)
     if (text_restart+1<text.sz && 
         text[text_restart]==' ' &&
         text[text_restart+1]==' ') {
@@ -219,7 +189,7 @@ void text_backspace()
     }
 }
 
-void text_delete() 
+void text_delete(int flag=1) 
 {
     if (text_restart+1>=text.sz) return;
 
@@ -233,7 +203,7 @@ void text_delete()
         text[saved_pos]=text[text_restart];
         text_restart++;
         saved_pos++;
-    } while (text_restart<text.sz && !isok((uchar) text[text_restart])); 
+    } while (flag && text_restart<text.sz && !isok((uchar) text[text_restart])); 
 
     if (text[text_restart-1]==EOL) 
         text_lines--;
@@ -244,7 +214,7 @@ void text_delete()
 /******************************************************/
 
 /* text is 0...[gap ... [restart ... [end
- * put the cursor on the argument (text_restart=i)
+ * put the cursor on the argument (text_restart=i or text_gap=i)
  * An argument in the middle do nothing.
  *
  * Never go behond the last EOL (gap<text.sz).
@@ -286,6 +256,29 @@ void text_move(int i)
         }
     }
 
+}
+
+// pas beau + un bug somewhere...
+void text_undo() {
+	undo_flush();
+	if (undo_stack.empty()) return;
+	record_undo=0;
+	struct s_undo op=undo_stack.back();
+	int pos = abs(op.pos);
+	if (pos<text_gap) {
+	   	text_move(pos);
+	} else {
+		text_move(text_restart + pos-text_gap);	
+	}	
+
+	if (op.pos >0) {
+		fi (op.content.sz) text_backspace(0);
+	} else {
+		fi (op.content.sz) text_putchar(op.content[i]);
+	}
+	undo_stack.pop_back();
+	undo_flush();
+	record_undo=1;
 }
 
 void text_typechar(int c) 
@@ -361,22 +354,6 @@ int text_line_begin(int l)
     return i;
 }
 
-/* This is original :
- * Everything the user type is dumped, and saved in the swp file.
- * There is a process to replay everything (this is how the undo is done).
- * This may seems not user friendly, but is really clean from the
- * computer point of view ... Experience will tell if I like it.
- *
- * timestamp and show the date of the save ...
- * letter to ignore until end of next line for message...
- * the user must be able to scroll in the text during undo mecanism
- * line/line level save/save  ? 
- *
- * TODO : catch deadly signal and write then ...
- * TODO : don't write movement (just new position)
- *        But I don't care I guess, simpler like this and
- *        I can do stat on how the user behave...
- */
 
 int base_pos;
 int mod_base_pos=0;
@@ -394,6 +371,27 @@ void compute_enterpos() {
     }
     text_move(i);
 }
+
+
+/* Swap file implementation in case of a crash:
+ *
+ * Just dump every keystroke in the swap file.
+ * The behaviour is perfectly reproducible.
+ *
+ * At some point I wanted to use it to undo stuff, but seems 
+ * like too much trouble. However, if we keep the same file
+ * from one edit to another, we can reconstruct the undo struct,
+ * jump between save and even go to some points just before an 
+ * undo that are lost in the undo struct ..
+ *
+ * timestamp and show the date of the save ?
+ * 
+ * TODO : catch deadly signal and write then ...
+ */
+ 
+string   swap_filename;
+ofstream swap_stream;
+int      swap_index;
 
 /* cool:
  * We refresh the screen each time the program is waiting for a
@@ -421,24 +419,13 @@ int text_getchar()
         replay = 0;
         return c;
     }
-    /* If we are redoing stuff, read the char from the
-     * swap file instead of the keyboard 
-     * Note : when we stop the undo process, we put a mark in the swp
-     * file saying from which undo mark we start doing new stuff again */
 
-    /* two undo : 
-     * jump from save point to save point.
-     * step by step, regroup control/basic text ? */
-
-
-    /* If the buffer is full write it 
-     * If u want less disk access (laptop?) increase the size */
-// if (swap_index  == swap_buff_size) {
-//      swap_stream.write(swap_buffer,swap_buff_size); 
-        /* Force output ? maybe directly use c++ buffer ... */
-//        swap_stream.flush();
-//      swap_index=0;
-//  }
+    // force output every 10 chars
+	// not sure about that, is the buffer in the process or in the system ? 
+   if (swap_index  == 10) {
+        swap_stream.flush();
+        swap_index=0;
+    }
 
     /* utf8 encoding, do not refresh before we have the full char */
     if (pending==0) text_refresh();
@@ -458,8 +445,13 @@ int text_getchar()
         }
     }
 
+	// to group operation in the undo struct corresponding to
+	// only one keystroke 
+	undo_number++;
+
     /* save the typed char and return it */
-//  swap_buffer[swap_index++] = res;
+    swap_stream.put(res);
+	swap_index++;
     return res;
 }
 
@@ -1023,6 +1015,7 @@ int mainloop() {
         switch (c) {
             case ':' : text_command();break;
             case '`' : replay=KEY_ESC;break;
+			case KEY_UNDO: text_undo();break;
             case KEY_END: text_endline();break;
             case KEY_BEGIN: text_beginline();break;
             case KEY_OLINE: open_line();break;
@@ -1060,6 +1053,11 @@ int main(int argc, char **argv)
 
     /* basic init */
     text_init();
+
+	// todo:
+	// get the file timestamp and make good use of it
+	// resume editing to the current pos.
+	// +-num line command option
     
     /* Open file */
     ifstream inputStream;
@@ -1094,61 +1092,56 @@ int main(int argc, char **argv)
     /* close file */
     inputStream.close();
 
-    /* Open swap file */
+	// Do a backup of the original file
+	// not really useful if we keep the same swap file for all the editing session
+	// and we use a versionning system
+	// But safer for all the development phase, and we need a starting point for the 
+	// swap reconstruction to work ...
+	swap_filename = "." + string(argv[1]) + string(".old");
+    swap_stream.open(swap_filename.c_str());
+    if (!swap_stream) {
+        printf("Error openning backup file %s\n", swap_filename.c_str());
+        exit(0);
+    }
+    
+	// the text_gap is at the end of the file
+	// after the loading process ...
+    fi (text_gap) swap_stream.put(text[i]);
+	swap_stream.flush();
+	swap_stream.close();
+
+    // Open swap file 
+	// problem with directory ...
     swap_index = 0;
     swap_filename = "." + string(argv[1]) + string(".swp"); 
-    swap_stream.open(swap_filename.c_str(),ios_base::trunc);
+    swap_stream.open(swap_filename.c_str());
     if (!swap_stream) {
         printf("Error openning swap file %s\n", swap_filename.c_str());
         exit(0);
     }
 
-
-    /* Output the readed file in the swap file */
-//    fi (text_gap) swap_stream.put(text[i]);
-    /* only tab are interpreted, other control caracter
-     * can appear in a line.
-     * the first tab indicate a beggining of interpretation 
-     * for the swap file.
-     */
-//    swap_stream.put('\t');
-    
-    /* Set position in the file */
+    /* Set position in the text */
     text_move(0);
-
-    //fi (text.sz) printf("%c",text[i]);
-    //printf("\n");
-    printf("%i lines.\n",text_lines);
-
-    /* test : dump file */
-/*  fi (text_lines) {
-        int *line=text_getline(i);
-        int j=0;
-        while(line[j]!=EOL) printf("%c",line[j++]);
-        printf("\n");
-    }
-    */
     screen_init();
     screen_redraw();
     term_set_title((uchar *)argv[1]);
 
     record_undo=1;
     mainloop();
-    
-    // output the end of the undo_stack in the swap file
-    undo_flush();
-    while (swap_index<undo_stack.sz) {
-        swap_stream << undo_stack[swap_index];
-        swap_index++;
-    }
 
-    // output the current file position 
-    // for later use when we open the same file
+	// output current position to be able
+	// to restore it the next time we open the file
     swap_stream.put('\t');
     swap_stream << text_gap;
     swap_stream.put(EOL);
     swap_stream.flush();
     swap_stream.close();
-    
+
+
+	undo_flush();
+	fi (undo_stack.sz) {
+		cout << undo_stack[i].num << " " << undo_stack[i].pos << endl;
+		cout << undo_stack[i].content << EOL;
+	}
     exit(0);
 }
