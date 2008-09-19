@@ -47,6 +47,7 @@ extern int     text_gap;
 extern int     text_restart;
 extern int     text_end;    
 
+extern string  text_highlight;
 extern string  text_message;
 extern int     screen_p;
 extern int     screen_l; // kind of real i ...

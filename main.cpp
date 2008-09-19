@@ -4,6 +4,7 @@
 string       filename;
 int          text_saved;
 
+string       text_highlight;
 string       text_message;
 vector<char> text;          // gap_buffer   
 int          text_gap;      // cursor/gap absolute position
@@ -105,9 +106,9 @@ void edit_text() {
 // undo stuff.
 
 struct s_undo {
-	int pos;
-	int num;
-	string content;
+    int pos;
+    int num;
+    string content;
 };
 
 vector<struct s_undo>    undo_stack;
@@ -119,12 +120,12 @@ void undo_flush()
     {
         if (text_gap == saved_pos) return;
 
-		struct s_undo op;
-		op.num = undo_number;
+        struct s_undo op;
+        op.num = undo_number;
         if (saved_pos<text_gap) 
-			op.pos = + text_gap;
+            op.pos = + text_gap;
         else 
-			op.pos = - text_gap;
+            op.pos = - text_gap;
 
         int b=min(text_gap,saved_pos);
         int e=max(text_gap,saved_pos);
@@ -180,13 +181,13 @@ void text_backspace(int flag=1)
 
 
     // respect indent on the rest of the line if necessary
-	if (flag)
-    if (text_restart+1<text.sz && 
-        text[text_restart]==' ' &&
-        text[text_restart+1]==' ') {
-            text_restart--;
-            text[text_restart]=' ';
-    }
+//  if (flag)
+//  if (text_restart+1<text.sz && 
+//      text[text_restart]==' ' &&
+//      text[text_restart+1]==' ') {
+//          text_restart--;
+//          text[text_restart]=' ';
+//  }
 }
 
 void text_delete(int flag=1) 
@@ -260,25 +261,25 @@ void text_move(int i)
 
 // pas beau + un bug somewhere...
 void text_undo() {
-	undo_flush();
-	if (undo_stack.empty()) return;
-	record_undo=0;
-	struct s_undo op=undo_stack.back();
-	int pos = abs(op.pos);
-	if (pos<text_gap) {
-	   	text_move(pos);
-	} else {
-		text_move(text_restart + pos-text_gap);	
-	}	
+    undo_flush();
+    if (undo_stack.empty()) return;
+    record_undo=0;
+    struct s_undo op=undo_stack.back();
+    int pos = abs(op.pos);
+    if (pos<text_gap) {
+        text_move(pos);
+    } else {
+        text_move(text_restart + pos-text_gap); 
+    }   
 
-	if (op.pos >0) {
-		fi (op.content.sz) text_backspace(0);
-	} else {
-		fi (op.content.sz) text_putchar(op.content[i]);
-	}
-	undo_stack.pop_back();
-	undo_flush();
-	record_undo=1;
+    if (op.pos >0) {
+        fi (op.content.sz) text_backspace(0);
+    } else {
+        fi (op.content.sz) text_putchar(op.content[i]);
+    }
+    undo_stack.pop_back();
+    undo_flush();
+    record_undo=1;
 }
 
 void text_typechar(int c) 
@@ -286,9 +287,9 @@ void text_typechar(int c)
     text_putchar(c);
     
     // deal with indent
-    if (isok((uchar) c))
-    if (text_restart+1<text.sz && text[text_restart]==' ' && text[text_restart+1]==' ') 
-        text_delete();
+//  if (isok((uchar) c))
+//  if (text_restart+1<text.sz && text[text_restart]==' ' && text[text_restart+1]==' ') 
+//      text_delete();
 }
 
 /* return the indice of the begining of the line l 
@@ -421,7 +422,7 @@ int text_getchar()
     }
 
     // force output every 10 chars
-	// not sure about that, is the buffer in the process or in the system ? 
+    // not sure about that, is the buffer in the process or in the system ? 
    if (swap_index  == 10) {
         swap_stream.flush();
         swap_index=0;
@@ -445,13 +446,13 @@ int text_getchar()
         }
     }
 
-	// to group operation in the undo struct corresponding to
-	// only one keystroke 
-	undo_number++;
+    // to group operation in the undo struct corresponding to
+    // only one keystroke 
+    undo_number++;
 
     /* save the typed char and return it */
     swap_stream.put(res);
-	swap_index++;
+    swap_index++;
     return res;
 }
 
@@ -1015,7 +1016,7 @@ int mainloop() {
         switch (c) {
             case ':' : text_command();break;
             case '`' : replay=KEY_ESC;break;
-			case KEY_UNDO: text_undo();break;
+            case KEY_UNDO: text_undo();break;
             case KEY_END: text_endline();break;
             case KEY_BEGIN: text_beginline();break;
             case KEY_OLINE: open_line();break;
@@ -1054,10 +1055,10 @@ int main(int argc, char **argv)
     /* basic init */
     text_init();
 
-	// todo:
-	// get the file timestamp and make good use of it
-	// resume editing to the current pos.
-	// +-num line command option
+    // todo:
+    // get the file timestamp and make good use of it
+    // resume editing to the current pos.
+    // +-num line command option
     
     /* Open file */
     ifstream inputStream;
@@ -1092,26 +1093,26 @@ int main(int argc, char **argv)
     /* close file */
     inputStream.close();
 
-	// Do a backup of the original file
-	// not really useful if we keep the same swap file for all the editing session
-	// and we use a versionning system
-	// But safer for all the development phase, and we need a starting point for the 
-	// swap reconstruction to work ...
-	swap_filename = "." + string(argv[1]) + string(".old");
+    // Do a backup of the original file
+    // not really useful if we keep the same swap file for all the editing session
+    // and we use a versionning system
+    // But safer for all the development phase, and we need a starting point for the 
+    // swap reconstruction to work ...
+    swap_filename = "." + string(argv[1]) + string(".old");
     swap_stream.open(swap_filename.c_str());
     if (!swap_stream) {
         printf("Error openning backup file %s\n", swap_filename.c_str());
         exit(0);
     }
     
-	// the text_gap is at the end of the file
-	// after the loading process ...
+    // the text_gap is at the end of the file
+    // after the loading process ...
     fi (text_gap) swap_stream.put(text[i]);
-	swap_stream.flush();
-	swap_stream.close();
+    swap_stream.flush();
+    swap_stream.close();
 
     // Open swap file 
-	// problem with directory ...
+    // problem with directory ...
     swap_index = 0;
     swap_filename = "." + string(argv[1]) + string(".swp"); 
     swap_stream.open(swap_filename.c_str());
@@ -1129,8 +1130,8 @@ int main(int argc, char **argv)
     record_undo=1;
     mainloop();
 
-	// output current position to be able
-	// to restore it the next time we open the file
+    // output current position to be able
+    // to restore it the next time we open the file
     swap_stream.put('\t');
     swap_stream << text_gap;
     swap_stream.put(EOL);
@@ -1138,10 +1139,10 @@ int main(int argc, char **argv)
     swap_stream.close();
 
 
-	undo_flush();
-	fi (undo_stack.sz) {
-		cout << undo_stack[i].num << " " << undo_stack[i].pos << endl;
-		cout << undo_stack[i].content << EOL;
-	}
+    undo_flush();
+    fi (undo_stack.sz) {
+        cout << undo_stack[i].num << " " << undo_stack[i].pos << endl;
+        cout << undo_stack[i].content << EOL;
+    }
     exit(0);
 }
