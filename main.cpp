@@ -256,7 +256,11 @@ void text_move(int i)
             text_restart++;
         }
     }
+}
 
+void text_absolute_move(int i) {
+    if (i<text_gap) text_move(i);
+    else text_move(i + text_restart-text_gap);
 }
 
 // pas beau + un bug somewhere...
@@ -378,20 +382,24 @@ void compute_enterpos() {
 
 /* Remember what was done on the last edited_line */
 
-string record_cmd;
-int    record_pos;
+string  record_cmd;
+int     record_pos;
+int     record_stop;
+int     record_ignore_next;
 
 string current_cmd;
 int    current_pos;
 int    current_line=-1;
 
 void record_end() {
-    if (!current_cmd.empty()) {
+    if (!current_cmd.empty() && record_stop==0) {
         record_cmd = current_cmd;
         record_pos = current_pos;
     }
     current_cmd.clear();
     current_line=-1;
+    record_stop=0;
+    record_ignore_next=0;
 }
 
 void record_display() {
@@ -405,6 +413,10 @@ void record(char c)
         record_end();
         current_line = text_l;
         current_pos = screen_p;
+        return;
+    }
+    if (record_ignore_next) {
+        record_ignore_next=0;
         return;
     }
     current_cmd.pb(c);
@@ -1000,20 +1012,18 @@ void smart_op()
         put_line_before();
         return;
     }
-    if (last_command==CMD_EDIT) {
-        // Redo whole line op
-        //line_goto(record_pos); mieux sans si goto line implicite
-        play_macro=record_cmd;
-        record_end();
-        //fi(int(inserted.sz)-1) 
-            //text_typechar(inserted[i]);
-        return;
-    }
     if (last_command==CMD_SEARCH) {
         text_search(cmd);
         // Redo whole line op
         return;
     }
+
+    // Redo whole line op
+    //line_goto(record_pos); mieux sans si goto line implicite
+    play_macro=record_cmd;
+    record_stop=1;
+    //fi(int(inserted.sz)-1) 
+    //text_typechar(inserted[i]);
 }
 
 /******************************************************************/
@@ -1072,12 +1082,20 @@ void npage()
 }
 
 int mainloop() {
+    int saved_mark=-1;
+    int saved_line=-1;
     int c='q';
     while (1) {
         c = text_getchar();
         switch (c) {
             case ':' : text_command();break;
-            case '`' : record_display();record_end();break;
+            case '`' :  if (saved_mark>=0) {
+                            text_absolute_move(saved_mark);
+                            screen_redraw(saved_line);
+                        }
+                        // todo : exact same screen pos !
+                        break;
+            case '1' : record_display();record_ignore_next=1;break;
             case KEY_UNDO: text_undo();break;
             case KEY_END: text_endline();break;
             case KEY_BEGIN: text_beginline();break;
@@ -1105,6 +1123,12 @@ int mainloop() {
                     insert();
                     break;
                 }
+        }        
+        
+        if (c!=KEY_PPAGE && c!=KEY_NPAGE && c !=KEY_LEFT && c!=KEY_RIGHT &&
+            c!=KEY_UP && c!=KEY_DOWN) {
+            saved_mark=text_gap;
+            saved_line=screen_real_i;
         }
     }
 }

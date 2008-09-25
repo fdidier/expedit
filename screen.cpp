@@ -259,13 +259,13 @@ void screen_done()
 /* (no wrap version) */
 void screen_movement_hint() 
 {
-        /* screen cursor postion */
+        /* screen cursor position */
         screen_wanted_j = screen_p;
         screen_wanted_j %= screen_columns;
 
         /* screen cursor line move according to line num */
         int temp = int(screen_l)-int(screen_saved_num);
-        temp += int(screen_wanted_i);
+        temp += int(screen_real_i);
         screen_saved_num = screen_l;
 
         /* make the screen wanted cursor line in range and set the scroll_hint */
@@ -418,7 +418,7 @@ void screen_highlight()
             }
             if (j>0 && (yo[i][j-1]&0xFF)=='*' && (yo[i][j]&0xFF)=='/') {
                 if (bloc==0) {
-                    /* oppposite direction */
+                    /* opposite direction */
                     for (int a=0; a<=i; a++)
                     for (int b=shift;(a==i?b<=j:b<screen_columns);b++) {
                         if (yo[a][b]==EOL) break;
@@ -487,6 +487,7 @@ void screen_init()
         keyword["return"]=YELLOW;
         keyword["break"]=YELLOW;
         keyword["switch"]=YELLOW;
+        keyword["default"]=YELLOW;
         keyword["case"]=YELLOW;
         keyword["while"]=YELLOW;
         keyword["do"]=YELLOW;
@@ -513,12 +514,19 @@ void screen_init()
         screen_alloc();
 }
 
-void screen_redraw() 
+void screen_redraw(int hint) 
 {
         term_reset();
 
         screen_clear();
+        
         screen_movement_hint();
+        if (hint ==-1) {
+            screen_wanted_i=screen_lines/2;
+        } else if (hint>0 && hint<screen_lines-1) {
+            screen_wanted_i=hint;
+        }
+        
         screen_compute_wanted(); 
         screen_highlight(); 
         screen_dump_wanted(0,screen_lines);

@@ -53,7 +53,7 @@ extern int     screen_p;
 extern int     screen_l; // kind of real i ...
 
 extern void    screen_init();
-extern void    screen_redraw();
+extern void    screen_redraw(int hint=-1);
 extern void    screen_refresh();
 extern uint    screen_lines;
 extern uint    screen_real_i;
