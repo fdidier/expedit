@@ -355,22 +355,59 @@ int text_line_begin(int l)
     return i;
 }
 
-
+// after a change of line,
+// base pos should be the original position the cursor goto
 int base_pos;
 int mod_base_pos=0;
-/* After a jump or a delete or ...
- * Compute the initial position in the line 
- * using base_pos as a reference
- */
-void compute_enterpos() {
-    int i=text_restart;
+
+// goto a given pos in the current line.
+void line_goto(int pos) {
+    int i=text_line_begin(text_l);
     int p=0;
-    while (p<base_pos && i<text.sz && text[i]!=EOL) {
+    while (p<pos && i<text.sz && text[i]!=EOL) {
         i++;
+        if (i==text_gap) i=text_restart;
         // utf-8
         if (isok((uchar) text[i])) p++;
     }
     text_move(i);
+}
+void compute_enterpos() {
+    line_goto(base_pos);
+}
+
+/* Remember what was done on the last edited_line */
+
+string record_cmd;
+int    record_pos;
+
+string current_cmd;
+int    current_pos;
+int    current_line=-1;
+
+void record_end() {
+    if (!current_cmd.empty()) {
+        record_cmd = current_cmd;
+        record_pos = current_pos;
+    }
+    current_cmd.clear();
+    current_line=-1;
+}
+
+void record_display() {
+    text_message = record_cmd;
+    text_message.pb(EOL);
+}
+
+void record(char c) 
+{
+    if (current_line != text_l) {
+        record_end();
+        current_line = text_l;
+        current_pos = screen_p;
+        return;
+    }
+    current_cmd.pb(c);
 }
 
 
@@ -411,13 +448,21 @@ void text_refresh()
     text_message.clear();
 }
 
+string play_macro;
 int replay=0;
 int pending=0;
+int last_ch=0;
 int text_getchar() 
 {
     if (replay!=0) {
         int c = replay;
         replay = 0;
+        return c;
+    }
+    
+    if (!play_macro.empty()) {
+        int c=play_macro[0];
+        play_macro.erase(play_macro.begin());
         return c;
     }
 
@@ -434,6 +479,7 @@ int text_getchar()
         pending --;
     }
 
+    /* read the next input char */
     int res = term_getchar();
 
     /* compute utf8 encoding length */
@@ -449,8 +495,13 @@ int text_getchar()
     // to group operation in the undo struct corresponding to
     // only one keystroke 
     undo_number++;
+    
+    // save line operation 
+    // if we are still on the same line and no record_end() occured.
+    record(last_ch);
 
     /* save the typed char and return it */
+    last_ch=res;
     swap_stream.put(res);
     swap_index++;
     return res;
@@ -517,7 +568,7 @@ void del_line() {
             }
             text_delete();
 
-            compute_enterpos();
+            line_goto(base_pos);
             continue;
         }
         // small redo
@@ -548,9 +599,9 @@ int put_line_after() {
 
 int put_line_before() {
     text_move(text_line_begin(text_l));
-    int saved=text_gap;
+    //int saved=text_gap;
     fi (saved_lines.sz) text_putchar(saved_lines[i]);
-    text_move(saved);
+    //text_move(saved);
     compute_enterpos();
 }
 
@@ -855,11 +906,13 @@ int insert() {
 
 string cmd;
 
-int search_next(string c) 
+int search_next(string c, int i) 
 {
-    int i=text_restart;
     int j=0;
+    if (i<0) return -1;
     while (i<text_end) {
+        if (i>=text_gap && i<text_restart) 
+            i=text_restart;
         if (text[i] == c[j]) { 
             j++;
             if (j>= c.sz) 
@@ -894,8 +947,14 @@ int text_jump(string s) {
 int text_search(string s) 
 {
     last_command=CMD_SEARCH;
-    int t = search_next(s);
+    int t = search_next(s,text_restart);
     if (t>0)  text_move(t);
+    else {
+        text_message = "search restarted on top.\n";
+        t = search_next(s,0);
+        if (t>0) text_move(t);
+        else text_message = "word not found.\n";
+    }
     return 1;
 }
 
@@ -938,13 +997,16 @@ void smart_op()
         return;
     }
     if (last_command==CMD_LINE) {
-        put_line_after();
+        put_line_before();
         return;
     }
     if (last_command==CMD_EDIT) {
         // Redo whole line op
-        fi(int(inserted.sz)-1) 
-            text_typechar(inserted[i]);
+        //line_goto(record_pos); mieux sans si goto line implicite
+        play_macro=record_cmd;
+        record_end();
+        //fi(int(inserted.sz)-1) 
+            //text_typechar(inserted[i]);
         return;
     }
     if (last_command==CMD_SEARCH) {
@@ -1015,18 +1077,18 @@ int mainloop() {
         c = text_getchar();
         switch (c) {
             case ':' : text_command();break;
-            case '`' : replay=KEY_ESC;break;
+            case '`' : record_display();record_end();break;
             case KEY_UNDO: text_undo();break;
             case KEY_END: text_endline();break;
             case KEY_BEGIN: text_beginline();break;
             case KEY_OLINE: open_line();break;
             case KEY_SLINE: smart_enter2();break;
-            case KEY_DLINE: replay=c;del_line();break;
+            case KEY_DLINE: replay=c;del_line(); record_end();break;
             case KEY_YLINE: yank_line();break;
-            case KEY_PLINE: put_line_before();break;
+            case KEY_PLINE: put_line_after();break;
             case KEY_TAB: smart_op();break;
-            case KEY_QUIT  : if (text_exit()) return 0; break;
-            case KEY_SAVE  : text_save();break;
+            case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
+            case KEY_SAVE  : text_save();record_end();break;
             case KEY_ENTER: smart_enter();break;
             case KEY_BACKSPACE: smart_backspace();mod_base_pos=0;break;
             case KEY_DELETE: text_delete();break;
