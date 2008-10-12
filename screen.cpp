@@ -300,7 +300,7 @@ void screen_compute_wanted()
         screen_wanted_i = text_l;
 
     // line numbers
-    int opt_line=1;
+    int opt_line=0;
     if (opt_line) {
             int num = text_l+screen_lines-screen_wanted_i;
             shift=1;
@@ -531,6 +531,14 @@ void screen_redraw(int hint)
         screen_highlight(); 
         screen_dump_wanted(0,screen_lines);
         screen_done();
+}
+
+int saved_line;
+void screen_save() {
+	saved_line=screen_real_i;
+}
+void screen_restore() {
+	screen_redraw(saved_line);
 }
 
 void screen_refresh() 

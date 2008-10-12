@@ -68,33 +68,36 @@ void term_putchar(int c);
 #define KEY_ENTER       CTRL('M')
 
 #define KEY_UP          CTRL('U')
-#define KEY_DOWN        CTRL('N')
+#define KEY_DOWN        CTRL('K')
 #define KEY_LEFT        CTRL('J')
 #define KEY_RIGHT       CTRL('L')
-#define KEY_PPAGE       CTRL('A')
-#define KEY_NPAGE       CTRL('D')
+
+#define KEY_PPAGE       CTRL('P')
+#define KEY_NPAGE       CTRL('N')
+
 #define KEY_DELETE      CTRL('X')
 #define KEY_BACKSPACE   CTRL('H')
+
 #define KEY_END         CTRL('E')
-#define KEY_BEGIN       CTRL('G')
-// insert next caracter untouched.
-#define KEY_INSERT		CTRL('V')
+#define KEY_BEGIN       CTRL('B')
 
-#define KEY_FIND		CTRL('F')
-#define KEY_BACK		CTRL('B')
-#define KEY_TILL		CTRL('T')
+#define KEY_INSERT      CTRL('V') // insert next caracter untouched.
 
+#define KEY_FIND        CTRL('A')
+#define KEY_BACK        CTRL('G')
+#define KEY_TILL        CTRL('T')
+
+#define KEY_DLINE       CTRL('D')
 #define KEY_OLINE       CTRL('O')
-#define KEY_PLINE       CTRL('P')
+#define KEY_PLINE       CTRL('F')
 #define KEY_YLINE       CTRL('Y')
-#define KEY_DLINE       CTRL('K')
-#define KEY_SLINE		CTRL('C')
+#define KEY_SLINE       CTRL('C')
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
 
-#define KEY_UNDO		CTRL('Z')
-#define KEY_REPEAT		CTRL('R')
+#define KEY_UNDO        CTRL('Z')
+#define KEY_REPEAT      CTRL('R')
 
 /* Test with capital Letter 
  * Use tab to change capitalisation */

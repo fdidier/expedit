@@ -27,7 +27,7 @@ void term_get_size(uint &x, uint &y)
 
         x = ws.ws_row;
         y = ws.ws_col;
-		y--;
+        y--;
 }
 
 void reset_input_mode (void)
@@ -122,7 +122,7 @@ uchar escape_sequence()
         tcgetattr (STDIN_FILENO, &tattr);
 
         /* Set a timeout on the input */
-        tattr.c_cc[VTIME] = 5;   /* wait 0.5 seconds */
+        tattr.c_cc[VTIME] = 1;   /* wait 0.5 seconds */
         tattr.c_cc[VMIN]  = 0;
         tcsetattr (STDIN_FILENO, TCSANOW, &tattr);
 
@@ -215,30 +215,30 @@ int bg_color      = WHITE;
 
 void term_putchar(int c)
 {
-	/* split char and color info */
+    /* split char and color info */
     uchar t = c & 0xFF;
     int color = (c>>8) & 0xF;
 
-	/* deal with control caracter 
-	 * display a red capital letter instead
-	 */
-	if (t<32) {
-		t += 64;
-		color = RED;
-	}
-	if (t>=128) {
-		if (!isok(t)) {
-			putchar(t);
-			return;
-		}
-	}
+    /* deal with control caracter 
+     * display a red capital letter instead
+     */
+    if (t<32) {
+        t += 64;
+        color = RED;
+    }
+    if (t>=128) {
+        if (!isok(t)) {
+            putchar(t);
+            return;
+        }
+    }
 
-	/* set color if necessary */
-	if ( t != ' ' && fg_color != color) {
-		SET_FG_COLOR(color);
-		fg_color = color;
-	}
+    /* set color if necessary */
+    if ( t != ' ' && fg_color != color) {
+        SET_FG_COLOR(color);
+        fg_color = color;
+    }
 
-	/* print the char */
-	putchar(t);
+    /* print the char */
+    putchar(t);
 }

@@ -52,6 +52,13 @@ extern string  text_message;
 extern int     screen_p;
 extern int     screen_l; // kind of real i ...
 
+extern void	   screen_save();
+extern void	   screen_restore();
+//extern void    screen_pgup();
+//extern void    screen_pgdown();
+//extern void    screen_lineup();
+//extern void    screen_linedown();
+
 extern void    screen_init();
 extern void    screen_redraw(int hint=-1);
 extern void    screen_refresh();

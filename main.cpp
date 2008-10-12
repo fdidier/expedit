@@ -179,7 +179,6 @@ void text_backspace(int flag=1)
         text_lines--;
     } 
 
-
     // respect indent on the rest of the line if necessary
 //  if (flag)
 //  if (text_restart+1<text.sz && 
@@ -234,7 +233,7 @@ void text_move(int i)
     undo_flush();
 
     if (i<text_gap) {
-        /* utf8 correction */
+        /* utf8 correction down */
         while (i>0 && !isok((uchar) text[i])) i--;
         while (text_gap !=i) {
             if (text[text_gap-1]==EOL) text_l--;
@@ -245,7 +244,7 @@ void text_move(int i)
             dec_screen_p(text[text_restart]);
         }
     } else {
-        /* utf8 correction */
+        /* utf8 correction up */
         while (i<text.sz && !isok((uchar) text[i])) i++;
         while (text_restart!=i) {
             inc_screen_p(text[text_restart]);
@@ -362,7 +361,7 @@ int text_line_begin(int l)
 // after a change of line,
 // base pos should be the original position the cursor goto
 int base_pos;
-int mod_base_pos=0;
+//int mod_base_pos=0;
 
 // goto a given pos in the current line.
 void line_goto(int pos) {
@@ -377,46 +376,72 @@ void line_goto(int pos) {
     text_move(i);
 }
 void compute_enterpos() {
-    line_goto(base_pos);
+    //line_goto(base_pos);
 }
 
 /* Remember what was done on the last edited_line */
 
 string  record_cmd;
 int     record_pos;
-int     record_stop;
-int     record_ignore_next;
 
 string current_cmd;
 int    current_pos;
 int    current_line=-1;
 
+void record_clear_trailing() {
+    while (!current_cmd.empty()) {
+        char c=current_cmd[current_cmd.sz-1];
+        if  (c==KEY_LEFT || c==KEY_RIGHT)
+            current_cmd.erase(current_cmd.end()-1);
+        else 
+            break;
+    }
+}
+
+int clear_trailing() {
+    int temp = current_cmd.sz;
+    while (!current_cmd.empty()) {
+        char c=current_cmd[current_cmd.sz-1];
+        if  (c==KEY_LEFT || c==KEY_RIGHT)
+            current_cmd.erase(current_cmd.end()-1);
+        else 
+            break;
+    }
+    if (current_cmd.sz == temp) return 0;
+    return 1;
+}
+
 void record_end() {
-    if (!current_cmd.empty() && record_stop==0) {
+    if (!current_cmd.empty()) {
         record_cmd = current_cmd;
         record_pos = current_pos;
     }
     current_cmd.clear();
     current_line=-1;
-    record_stop=0;
-    record_ignore_next=0;
 }
 
 void record_display() {
     text_message = record_cmd;
+    text_message.pb('#');
+    text_message += current_cmd;
+    text_message.pb('#');
     text_message.pb(EOL);
 }
 
 void record(char c) 
 {
     if (current_line != text_l) {
-        record_end();
+        if (!current_cmd.empty()) {
+            if (!clear_trailing()) 
+                current_cmd.pb(c);
+            record_end();
+        }
         current_line = text_l;
         current_pos = screen_p;
         return;
     }
-    if (record_ignore_next) {
-        record_ignore_next=0;
+    if (c==KEY_TAB || 
+       (current_cmd.empty() && (c == KEY_LEFT || c==KEY_RIGHT ))) {
         return;
     }
     current_cmd.pb(c);
@@ -427,6 +452,7 @@ void record(char c)
  *
  * Just dump every keystroke in the swap file.
  * The behaviour is perfectly reproducible.
+ * Wrong: some function depends on screen size !! -> fix this
  *
  * At some point I wanted to use it to undo stuff, but seems 
  * like too much trouble. However, if we keep the same file
@@ -455,7 +481,7 @@ int      swap_index;
  */
 void text_refresh() 
 {
-    if (mod_base_pos) base_pos = screen_p;
+//    if (mod_base_pos) base_pos = screen_p;
     screen_refresh();
     text_message.clear();
 }
@@ -486,8 +512,17 @@ int text_getchar()
     }
 
     /* utf8 encoding, do not refresh before we have the full char */
-    if (pending==0) text_refresh();
-    else {
+    if (pending==0) {
+        static int oldstatus;
+        text_refresh();
+        if (oldstatus!=text_saved) {
+            string title=filename;
+            if (!text_saved) 
+                title += " (+)";
+            term_set_title((uchar *) title.c_str());
+            oldstatus=text_saved;
+        }
+    } else {
         pending --;
     }
 
@@ -508,8 +543,7 @@ int text_getchar()
     // only one keystroke 
     undo_number++;
     
-    // save line operation 
-    // if we are still on the same line and no record_end() occured.
+    // save last_char
     record(last_ch);
 
     /* save the typed char and return it */
@@ -530,6 +564,7 @@ int text_getchar()
 #define CMD_NEWLINE     4
 
 int    last_command;
+int    current_command;
 
 string inserted;
 string saved_lines;
@@ -540,7 +575,7 @@ string last_line_commands;
 
 void yank_line() {
     saved_lines.clear();
-    last_command=CMD_LINE;
+    current_command=CMD_LINE;
     int i = text_gap;
     while (i>0 && text[i-1]!=EOL) i--;
     while (i<text_gap) {
@@ -557,11 +592,11 @@ void yank_line() {
 
 void del_line() {
     saved_lines.clear();
-    last_command=CMD_LINE;
+    current_command=CMD_LINE;
     while (1) {
         int c = text_getchar();
         // delete whole line
-        if (c==CTRL('K') || c=='D') {
+        if (c==KEY_DLINE) {
             // no more line ??
             if (text_lines==0) return;
             
@@ -651,6 +686,7 @@ int text_spacetab() {
     return 0;
 }
 
+// remove full indent when necessary
 // todo: smart if lot of space in the middle ??
 void smart_backspace() {
     int i=text_gap;
@@ -669,8 +705,12 @@ void smart_backspace() {
     text_backspace();
 }
 
+// remove indent when necessary
+void smart_delete() {
+}
+
 void smart_enter() {
-    last_command=CMD_NEWLINE;
+    current_command=CMD_NEWLINE;
     int i=text_line_begin(text_l);
     int pos=0;
     while (i<text_gap && text[i]==' ') {
@@ -683,37 +723,38 @@ void smart_enter() {
 
 void text_beginline() {
     int begin=text_line_begin(text_l);
-    int i=begin;
-    while (i<text_gap && text[i]==' ') i++;
-    if (i>=text_gap) {
-        i = text_restart;
-        while (i<text.sz && text[i]==' ') i++;
-    }
-    text_move(i);
-
-    int c = text_getchar();
-    if (c==KEY_BEGIN) text_move(begin);
-    else {
-        replay = c;
-        return;
-    }
-
-    c = text_getchar();
-    if (c==KEY_BEGIN) text_move(0);
-    else replay=c;
+    text_move(begin);
+//    int i=begin;
+//    while (i<text_gap && text[i]==' ') i++;
+//    if (i>=text_gap) {
+//        i = text_restart;
+//        while (i<text.sz && text[i]==' ') i++;
+//    }
+//    text_move(i);
+//
+//    int c = text_getchar();
+//    if (c==KEY_BEGIN) text_move(begin);
+//    else {
+//        replay = c;
+//        return;
+//    }
+//
+//    c = text_getchar();
+//    if (c==KEY_BEGIN) text_move(0);
+//    else replay=c;
 }
  
 void text_endline() {
     int i=text_restart;
     while (i<text.sz && text[i]!=EOL) i++;
     text_move(i);
-    int c = text_getchar();
-    if (c==KEY_END) text_move(text.sz-1);
-    else replay=c;
+//    int c = text_getchar();
+//    if (c==KEY_END) text_move(text.sz-1);
+//    else replay=c;
 }
 
 void smart_enter2() {
-    last_command=CMD_NEWLINE;
+    current_command=CMD_NEWLINE;
     int i=text_line_begin(text_l);
     int pos=0;
     while (i<text_gap && text[i]==' ') {
@@ -737,7 +778,7 @@ void smart_enter2() {
 
 // blank line at the end, open before.
 void open_line() {
-    last_command=CMD_NEWLINE;
+    current_command=CMD_NEWLINE;
     text_move(text_line_begin(text_l));
     text_putchar(EOL);
     int pos=0;
@@ -813,6 +854,12 @@ string search_comp(string c, int &i)
             a++;
             b++;
             if (b>= c.sz) { 
+                if (c.sz>0 && !isletter(c[c.sz-1])) {
+                    while (text[a]==' ') {
+                        res.pb(text[a]);
+                        a++;
+                    }
+                }
                 while (isletter(text[a])) {
                     res.pb(text[a]);
                     a++;
@@ -830,11 +877,18 @@ string search_comp(string c, int &i)
     return res;
 }
 
-string text_complete() {
+string text_complete() 
+{
     possibilities.clear();
     int i=text_gap-1;
     string begin;
     string end;
+
+    // if previous white, do intelligent stuff
+    while (i>0 && !isletter(text[i]) && text[i]!=EOL) {
+        begin = text[i] + begin;
+        i--;
+    }
     while (i>0 && isletter(text[i])) {
         begin = text[i] + begin;
         i--;
@@ -879,9 +933,8 @@ string text_complete() {
 }
 
 int insert() {
-    mod_base_pos=0;
+   // mod_base_pos=0;
     inserted.clear();
-    last_command=CMD_EDIT;
     while (1) {
         int c = text_getchar();
         if (isprint(c)) {
@@ -918,14 +971,39 @@ int insert() {
 
 string cmd;
 
+// no debug yet
+int search_previous(string c, int i) 
+{
+    int j=c.sz-1;
+    if (c.sz == 0) return -1; 
+    if (i>text_end) return -1;
+    if (i==(text_end-1) && c[j]==' ') j--; 
+    while (i>0) {
+        if (i>=text_gap && i<text_restart) 
+            i=text_gap;
+        if (text[i] == c[j] || (c[j]==' ' && !isletter(text[i]))) { 
+            j--;
+            if (j<0) 
+                return i+1;
+        } else {
+            i = i+(c.sz-1-j);
+            j = c.sz-1;
+        }
+        i--;
+    }
+    return -1;
+}
+
 int search_next(string c, int i) 
 {
     int j=0;
+    if (c.sz ==0) return -1;
     if (i<0) return -1;
+    if (i==0 && c[0]==' ') j=1;
     while (i<text_end) {
         if (i>=text_gap && i<text_restart) 
             i=text_restart;
-        if (text[i] == c[j]) { 
+        if (text[i] == c[j] || (c[j]==' ' && !isletter(text[i]))) { 
             j++;
             if (j>= c.sz) 
                 return i+1;
@@ -958,7 +1036,7 @@ int text_jump(string s) {
 
 int text_search(string s) 
 {
-    last_command=CMD_SEARCH;
+    current_command=CMD_SEARCH;
     int t = search_next(s,text_restart);
     if (t>0)  text_move(t);
     else {
@@ -1004,6 +1082,7 @@ void text_command() {
 
 void smart_op() 
 {
+    current_command=last_command;
     if (last_command==CMD_NEWLINE) {
         text_spacetab();
         return;
@@ -1019,11 +1098,12 @@ void smart_op()
     }
 
     // Redo whole line op
-    //line_goto(record_pos); mieux sans si goto line implicite
+    // line_goto(record_pos); mieux sans si goto line implicite
+    if (!current_cmd.empty()) {
+        record_clear_trailing();
+        record_end();
+    }
     play_macro=record_cmd;
-    record_stop=1;
-    //fi(int(inserted.sz)-1) 
-    //text_typechar(inserted[i]);
 }
 
 /******************************************************************/
@@ -1040,17 +1120,15 @@ int smart_repeat() {
 /******************************************************************/
 
 void keyup() {
-    mod_base_pos=0;
     if(text_l>0) 
         text_move(text_line_begin(text_l-1));
-    compute_enterpos();
+    line_goto(base_pos);
 }
 
 void keydown() {
-    mod_base_pos=0;
     if(text_l+1<text_lines) 
         text_move(text_line_begin(text_l+1));
-    compute_enterpos();
+    line_goto(base_pos);
 }
 
 void ppage() 
@@ -1081,55 +1159,73 @@ void npage()
     compute_enterpos();
 }
 
+int move(char c) {
+    switch(c) {
+        case KEY_END: text_endline();base_pos=screen_p;break;
+        case KEY_BEGIN: text_beginline();base_pos=screen_p;break;
+        case KEY_LEFT: text_move(text_gap-1);base_pos=screen_p;break;
+        case KEY_RIGHT: text_move(text_restart+1);base_pos=screen_p;break;
+        case KEY_UP: keyup();break;
+        case KEY_DOWN: keydown();break;
+        case KEY_PPAGE: ppage();break; 
+        case KEY_NPAGE: npage();break;
+        default:
+            return 0;
+    }
+    return 1;
+}
+
 int mainloop() {
+    int movement=0;
     int saved_mark=-1;
-    int saved_line=-1;
+    last_command = CMD_FALLBACK;
     int c='q';
     while (1) {
+        current_command = CMD_FALLBACK;
         c = text_getchar();
-        switch (c) {
-            case ':' : text_command();break;
-            case '`' :  if (saved_mark>=0) {
-                            text_absolute_move(saved_mark);
-                            screen_redraw(saved_line);
-                        }
-                        // todo : exact same screen pos !
+        if (move(c)) {
+            movement = 1;
+            current_command = last_command;
+        } else {
+            switch (c) {
+                case ':' : text_command();break;
+                case KEY_ESC :
+                case '`' :  if (movement && saved_mark>=0) {
+                                text_absolute_move(saved_mark);
+                                screen_restore();
+                                movement = 0;
+                            } else {
+                                text_undo();
+                            }
+                            break;
+                case '1' : record_display();break;
+                case KEY_UNDO: text_undo();break;
+                case KEY_OLINE: open_line();break;
+                case KEY_SLINE: smart_enter2();break;
+                case KEY_DLINE: replay=c;del_line(); record_end();break;
+                case KEY_YLINE: yank_line();break;
+                case KEY_INSERT: put_line_before();break;
+                case KEY_PLINE: put_line_after();break;
+                case KEY_TAB: smart_op();break;
+                case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
+                case KEY_SAVE  : text_save();record_end();break;
+                case KEY_ENTER: smart_enter();break;
+                case KEY_BACKSPACE: smart_backspace();break;
+                case KEY_DELETE: text_delete();break;
+                default:  
+                    if (isprint(c)) {
+                        if (c==' ' && text_spacetab()) break;
+                        replay=c;
+                        insert();
                         break;
-            case '1' : record_display();record_ignore_next=1;break;
-            case KEY_UNDO: text_undo();break;
-            case KEY_END: text_endline();break;
-            case KEY_BEGIN: text_beginline();break;
-            case KEY_OLINE: open_line();break;
-            case KEY_SLINE: smart_enter2();break;
-            case KEY_DLINE: replay=c;del_line(); record_end();break;
-            case KEY_YLINE: yank_line();break;
-            case KEY_PLINE: put_line_after();break;
-            case KEY_TAB: smart_op();break;
-            case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
-            case KEY_SAVE  : text_save();record_end();break;
-            case KEY_ENTER: smart_enter();break;
-            case KEY_BACKSPACE: smart_backspace();mod_base_pos=0;break;
-            case KEY_DELETE: text_delete();break;
-            case KEY_UP: keyup();break;
-            case KEY_DOWN: keydown();break;
-            case KEY_PPAGE: ppage();break; 
-            case KEY_NPAGE: npage();break;
-            case KEY_LEFT: text_move(text_gap-1);mod_base_pos=1;break;
-            case KEY_RIGHT: text_move(text_restart+1);mod_base_pos=1;break;
-            default:  
-                if (isprint(c)) {
-                    if (c==' ' && text_spacetab()) break;
-                    replay=c;
-                    insert();
-                    break;
-                }
-        }        
+                    }
+            }        
         
-        if (c!=KEY_PPAGE && c!=KEY_NPAGE && c !=KEY_LEFT && c!=KEY_RIGHT &&
-            c!=KEY_UP && c!=KEY_DOWN) {
+            movement=0;
             saved_mark=text_gap;
-            saved_line=screen_real_i;
+            screen_save();
         }
+        last_command = current_command;
     }
 }
 
