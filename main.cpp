@@ -41,13 +41,12 @@ void text_check(int l)
     text_end = text.sz;
 }
 
-int undo_number;
-int record_undo;
-int saved_pos;
+int undo_pos;
+int undo_mrk;
 
 void text_init() 
 {
-    saved_pos=-1;
+    undo_pos=-1;
 
     screen_p=0;
     screen_l=0;
@@ -59,8 +58,8 @@ void text_init()
     text_modif=1;
     text_end=0;
     text_lines=0;
-    record_undo=0;
     text_check(text_blocsize);
+	undo_mrk = -1;
 }   
 
 void compute_screen_p() 
@@ -108,6 +107,7 @@ void edit_text() {
 struct s_undo {
     int pos;
     int num;
+	int del;
     string content;
 };
 
@@ -115,46 +115,71 @@ vector<struct s_undo>    undo_stack;
 
 void undo_flush() 
 {
-    if (saved_pos==-1) return;
-    if (record_undo==1) 
-    {
-        if (text_gap == saved_pos) return;
+    if (undo_pos==-1) return; 
+    if (text_gap == undo_pos) {
+		undo_pos=-1;
+		return;
+	}
 
-        struct s_undo op;
-        op.num = undo_number;
-        if (saved_pos<text_gap) 
-            op.pos = + text_gap;
-        else 
-            op.pos = - text_gap;
+    struct s_undo op;
+    op.num = undo_mrk;
+	op.pos = text_gap;
+    if (undo_pos<text_gap) 
+		op.del = 0;
+	else 
+		op.del = 1;
 
-        int b=min(text_gap,saved_pos);
-        int e=max(text_gap,saved_pos);
+	int b=min(text_gap,undo_pos);
+	int e=max(text_gap,undo_pos);
 
-        while (b<e) {
-            op.content.pb(text[b]);
-            b++;
-        }
+	while (b<e) {
+		op.content.pb(text[b]);
+		b++;
+	}
 
-        undo_stack.pb(op);
-    }
-    saved_pos=-1;
+	undo_stack.pb(op);
+    undo_pos=-1;
+    undo_mrk=-1;
 }
 
-void text_putchar(int c) 
-{
-    edit_text();
-    if (saved_pos>=text_gap || saved_pos==-1) {
-        undo_flush();
-        saved_pos=text_gap;
-    }
+void undo_savepos() {
+	if (undo_pos == -1)
+		undo_mrk = text_gap;
+}
 
+void text_add(int c) 
+{
     text_check(1);
+    edit_text();
     if (c==EOL) {
         text_l++;
         text_lines++;
     }
     text[text_gap++]=c;
     inc_screen_p(c);
+}
+
+void text_sup() 
+{
+	if (text_gap==0) return;
+    edit_text();
+
+    text_gap--;
+    dec_screen_p(text[text_gap]);
+    if (text[text_gap]==EOL) {
+        text_l--;
+        text_lines--;
+    } 
+}
+
+void text_putchar(int c) 
+{
+    if (undo_pos == -1 || undo_pos>=text_gap) {
+        undo_flush();
+        undo_pos=text_gap;
+    }
+
+	text_add(c);
 }
 
 // tab control n'est pas nécessairement
@@ -165,8 +190,8 @@ void text_backspace(int flag=1)
     if (text_gap==0) return;
     
     edit_text();
-    if (saved_pos<0) {
-        saved_pos=text_gap;
+    if (undo_pos<0) {
+        undo_pos=text_gap;
     }
 
     do {
@@ -189,20 +214,21 @@ void text_backspace(int flag=1)
 //  }
 }
 
+
 void text_delete(int flag=1) 
 {
     if (text_restart+1>=text.sz) return;
 
     edit_text();
-    if (saved_pos<text_gap) {
+    if (undo_pos<text_gap) {
         undo_flush();
-        saved_pos=text_gap;
+        undo_pos=text_gap;
     }
 
     do {
-        text[saved_pos]=text[text_restart];
+        text[undo_pos]=text[text_restart];
         text_restart++;
-        saved_pos++;
+        undo_pos++;
     } while (flag && text_restart<text.sz && !isok((uchar) text[text_restart])); 
 
     if (text[text_restart-1]==EOL) 
@@ -262,27 +288,29 @@ void text_absolute_move(int i) {
     else text_move(i + text_restart-text_gap);
 }
 
-// pas beau + un bug somewhere...
 void text_undo() {
     undo_flush();
-    if (undo_stack.empty()) return;
-    record_undo=0;
-    struct s_undo op=undo_stack.back();
-    int pos = abs(op.pos);
-    if (pos<text_gap) {
-        text_move(pos);
-    } else {
-        text_move(text_restart + pos-text_gap); 
-    }   
+	struct s_undo op;
 
-    if (op.pos >0) {
-        fi (op.content.sz) text_backspace(0);
-    } else {
-        fi (op.content.sz) text_putchar(op.content[i]);
-    }
-    undo_stack.pop_back();
-    undo_flush();
-    record_undo=1;
+    if (undo_stack.empty()) return;
+	do {
+	    op=undo_stack.back();
+
+		text_absolute_move(op.pos);
+	    if (op.del) {
+			text_check(op.content.sz);
+	        fi (op.content.sz)
+				text_add(op.content[i]);
+	    } else {
+			fi (op.content.sz)
+				text_sup();
+	    }
+
+		if (op.num>=0)
+			text_absolute_move(op.num);
+
+    	undo_stack.pop_back();
+	} while (!undo_stack.empty() && op.num<0);
 }
 
 void text_typechar(int c) 
@@ -540,8 +568,8 @@ int text_getchar()
     }
 
     // to group operation in the undo struct corresponding to
-    // only one keystroke 
-    undo_number++;
+    // only one keystroke and remember the position that started it all
+	undo_savepos();
     
     // save last_char
     record(last_ch);
@@ -1258,18 +1286,18 @@ int main(int argc, char **argv)
         last=c;
         if (c == '\t') {
             do {
-                text_putchar(' ');
+                text_add(' ');
                 temp++;
             } while ((temp%TABSTOP)!=0);
         } else if (c == EOL) {
-            text_putchar(EOL);
+            text_add(EOL);
             temp=0;
         } else {
-            text_putchar(c);
+            text_add(c);
             temp++;
         }
     }
-    if (last!=EOL) text_putchar(EOL);
+    if (last!=EOL) text_add(EOL);
     text_saved=1;
 
     /* close file */
@@ -1309,7 +1337,6 @@ int main(int argc, char **argv)
     screen_redraw();
     term_set_title((uchar *)argv[1]);
 
-    record_undo=1;
     mainloop();
 
     // output current position to be able
