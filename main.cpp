@@ -43,6 +43,7 @@ void text_check(int l)
 
 int undo_pos;
 int undo_mrk;
+int undo_last;
 
 void text_init() 
 {
@@ -59,7 +60,7 @@ void text_init()
     text_end=0;
     text_lines=0;
     text_check(text_blocsize);
-	undo_mrk = -1;
+    undo_mrk = -1;
 }   
 
 void compute_screen_p() 
@@ -107,7 +108,7 @@ void edit_text() {
 struct s_undo {
     int pos;
     int num;
-	int del;
+    int del;
     string content;
 };
 
@@ -117,34 +118,40 @@ void undo_flush()
 {
     if (undo_pos==-1) return; 
     if (text_gap == undo_pos) {
-		undo_pos=-1;
-		return;
-	}
+        undo_pos=-1;
+        return;
+    }
 
     struct s_undo op;
     op.num = undo_mrk;
-	op.pos = text_gap;
+    op.pos = text_gap;
     if (undo_pos<text_gap) 
-		op.del = 0;
-	else 
-		op.del = 1;
+        op.del = 0;
+    else 
+        op.del = 1;
 
-	int b=min(text_gap,undo_pos);
-	int e=max(text_gap,undo_pos);
+    int b=min(text_gap,undo_pos);
+    int e=max(text_gap,undo_pos);
 
-	while (b<e) {
-		op.content.pb(text[b]);
-		b++;
-	}
+    while (b<e) {
+        op.content.pb(text[b]);
+        b++;
+    }
 
-	undo_stack.pb(op);
+    undo_stack.pb(op);
     undo_pos=-1;
     undo_mrk=-1;
+    undo_last=-1;
 }
 
 void undo_savepos() {
-	if (undo_pos == -1)
-		undo_mrk = text_gap;
+    undo_last = text_gap;
+}
+
+void undo_start() {
+    undo_flush();
+    undo_pos = text_gap;
+    undo_mrk = undo_last;
 }
 
 void text_add(int c) 
@@ -161,7 +168,7 @@ void text_add(int c)
 
 void text_sup() 
 {
-	if (text_gap==0) return;
+    if (text_gap==0) return;
     edit_text();
 
     text_gap--;
@@ -175,11 +182,10 @@ void text_sup()
 void text_putchar(int c) 
 {
     if (undo_pos == -1 || undo_pos>=text_gap) {
-        undo_flush();
-        undo_pos=text_gap;
+        undo_start();
     }
 
-	text_add(c);
+    text_add(c);
 }
 
 // tab control n'est pas nécessairement
@@ -191,7 +197,7 @@ void text_backspace(int flag=1)
     
     edit_text();
     if (undo_pos<0) {
-        undo_pos=text_gap;
+        undo_start();
     }
 
     do {
@@ -221,8 +227,7 @@ void text_delete(int flag=1)
 
     edit_text();
     if (undo_pos<text_gap) {
-        undo_flush();
-        undo_pos=text_gap;
+        undo_start();
     }
 
     do {
@@ -290,27 +295,27 @@ void text_absolute_move(int i) {
 
 void text_undo() {
     undo_flush();
-	struct s_undo op;
+    struct s_undo op;
 
     if (undo_stack.empty()) return;
-	do {
-	    op=undo_stack.back();
+    do {
+        op=undo_stack.back();
 
-		text_absolute_move(op.pos);
-	    if (op.del) {
-			text_check(op.content.sz);
-	        fi (op.content.sz)
-				text_add(op.content[i]);
-	    } else {
-			fi (op.content.sz)
-				text_sup();
-	    }
+        text_absolute_move(op.pos);
+        if (op.del) {
+            text_check(op.content.sz);
+            fi (op.content.sz)
+                text_add(op.content[i]);
+        } else {
+            fi (op.content.sz)
+                text_sup();
+        }
 
-		if (op.num>=0)
-			text_absolute_move(op.num);
+        if (op.num>=0)
+            text_absolute_move(op.num);
 
-    	undo_stack.pop_back();
-	} while (!undo_stack.empty() && op.num<0);
+        undo_stack.pop_back();
+    } while (!undo_stack.empty() && op.num<0);
 }
 
 void text_typechar(int c) 
@@ -321,6 +326,37 @@ void text_typechar(int c)
 //  if (isok((uchar) c))
 //  if (text_restart+1<text.sz && text[text_restart]==' ' && text[text_restart+1]==' ') 
 //      text_delete();
+}
+
+// both functions call each other but only with EOL
+// and so the program can't be stuck
+// return text_gap if nothing found
+int text_fc_forward(char c);
+
+// return the indice of the previous occurence of c in line 
+// stop just before c
+int text_fc_backward(char c) {
+    int i=text_gap;
+    while (i>0 && text[i-1]!=c && text[i-1]!=EOL) i--;
+    if (i==0 && c==EOL) return 0;
+    if (text[i-1]==c) return i;
+    i = text_fc_forward(EOL);
+    while (i>text_restart && text[i-1]!=c) i--;
+    if (text[i-1]==c) return i;
+    return text_gap;
+}
+
+// return the indice of the next occurence of char in line 
+// cycle at the end of line and restart at the beginning
+int text_fc_forward(char c) {
+    int i=text_restart;
+    while (i<text.sz && text[i]!=EOL && text[i]!=c) i++;
+    if (i==text.sz && c==EOL) return i-1;
+    if (text[i]==c) return i;
+    i = text_fc_backward(EOL);
+    while (i<text_gap && text[i]!=EOL && text[i]!=c) i++;
+    if (text[i]==c) return i;
+    return text_gap;
 }
 
 /* return the indice of the begining of the line l 
@@ -569,7 +605,7 @@ int text_getchar()
 
     // to group operation in the undo struct corresponding to
     // only one keystroke and remember the position that started it all
-	undo_savepos();
+    undo_savepos();
     
     // save last_char
     record(last_ch);
@@ -621,16 +657,18 @@ void yank_line() {
 void del_line() {
     saved_lines.clear();
     current_command=CMD_LINE;
+
+    // move to line begin
+    text_move(text_line_begin(text_l));
+
+    // Clean this,  mecanism not pretty since c==KEY_DLINE
     while (1) {
         int c = text_getchar();
         // delete whole line
-        if (c==KEY_DLINE) {
+        if (c==KEY_DLINE || c==KEY_BACKSPACE) {
             // no more line ??
             if (text_lines==0) return;
             
-            // move to line begin
-            text_move(text_line_begin(text_l));
-
             // save line 
             int i=text_restart;
             do {
@@ -642,23 +680,25 @@ void del_line() {
                 text_delete();
             }
             text_delete();
-
-            line_goto(base_pos);
             continue;
         }
         // small redo
-//      if (c==KEY_BACKSPACE && !saved_lines.empty()) {
-//          text_move(text_line_begin(text_l));
-//          int begin=saved_lines.sz-1;
-//          while (begin>0 && saved_lines[begin-1]!=EOL) begin--;
-//          for (int i=begin; i<saved_lines.sz; i++) 
-//              text_putchar(saved_lines[i]);
-//          saved_lines.erase(saved_lines.begin()+begin,saved_lines.end());
-//          
-//          text_move(text_line_begin(text_l-1));
-//          compute_enterpos();
-//          continue;
-//      }
+        // Beware directly modify text !!
+        // clean this
+        if ((c==KEY_UNDO || c=='`') && !saved_lines.empty()) {
+            int i=saved_lines.sz-1;
+            do {
+                text[--text_restart]=saved_lines[i];
+                text[--undo_pos]='A';
+                i--;
+            } while (i>=0 && saved_lines[i]!=EOL); 
+            SS test;
+            test << text_gap << " " << undo_pos << " " << text_restart << EOL;
+            text_message=test.str();
+            text_lines++;
+            saved_lines.erase(saved_lines.begin()+i+1,saved_lines.end());
+            continue;
+        }
         replay = c;
         break;
     }
@@ -704,8 +744,9 @@ int text_spacetab() {
             i++;
             pos++;
         }
-        text_move(i);
-        do {
+        if (text_restart!=i)
+            text_move(i);
+        else do {
             text_putchar(' ');
             pos++;
         } while (pos % TABSTOP != 0);
@@ -750,6 +791,8 @@ void smart_enter() {
 }
 
 void text_beginline() {
+    text_move(text_fc_backward(EOL));
+    return;
     int begin=text_line_begin(text_l);
     text_move(begin);
 //    int i=begin;
@@ -773,6 +816,8 @@ void text_beginline() {
 }
  
 void text_endline() {
+    text_move(text_fc_forward(EOL));
+    return;
     int i=text_restart;
     while (i<text.sz && text[i]!=EOL) i++;
     text_move(i);
@@ -1208,6 +1253,7 @@ int mainloop() {
     int saved_mark=-1;
     last_command = CMD_FALLBACK;
     int c='q';
+    int temp;
     while (1) {
         current_command = CMD_FALLBACK;
         c = text_getchar();
@@ -1216,6 +1262,8 @@ int mainloop() {
             current_command = last_command;
         } else {
             switch (c) {
+                case KEY_FIND: temp=text_getchar();text_move(text_fc_forward(temp)); break;
+                case KEY_TILL: temp=text_getchar();text_move(text_fc_backward(temp)); break;
                 case ':' : text_command();break;
                 case KEY_ESC :
                 case '`' :  if (movement && saved_mark>=0) {
@@ -1227,7 +1275,7 @@ int mainloop() {
                             }
                             break;
                 case '1' : record_display();break;
-                case KEY_UNDO: text_undo();break;
+//              case KEY_UNDO: text_undo();break;
                 case KEY_OLINE: open_line();break;
                 case KEY_SLINE: smart_enter2();break;
                 case KEY_DLINE: replay=c;del_line(); record_end();break;
@@ -1238,7 +1286,12 @@ int mainloop() {
                 case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
                 case KEY_SAVE  : text_save();record_end();break;
                 case KEY_ENTER: smart_enter();break;
-                case KEY_BACKSPACE: smart_backspace();break;
+                case KEY_BACKSPACE: 
+                            if (text_gap==0 || text[text_gap-1]==EOL) {
+                                replay=KEY_DLINE;del_line();record_end();
+                            } else 
+                                smart_backspace();
+                            break;
                 case KEY_DELETE: text_delete();break;
                 default:  
                     if (isprint(c)) {
