@@ -429,7 +429,7 @@ int base_pos;
 
 // goto a given pos in the current line.
 void line_goto(int pos) {
-    int i=text_line_begin(text_l);
+    int i=text_fc_backward(EOL);
     int p=0;
     while (p<pos && i<text.sz && text[i]!=EOL) {
         i++;
@@ -659,7 +659,7 @@ void del_line() {
     current_command=CMD_LINE;
 
     // move to line begin
-    text_move(text_line_begin(text_l));
+    text_move(text_fc_backward(EOL));
 
     // Clean this,  mecanism not pretty since c==KEY_DLINE
     while (1) {
@@ -706,18 +706,16 @@ void del_line() {
 
 int put_line_after() {
     // pb on last line !!
-    text_move(text_line_begin(text_l+1));
+    // should be a problem, since always a trailing EOL..
+    text_move(text_fc_forward(EOL)+1);
     fi (saved_lines.sz) text_putchar(saved_lines[i]);
     text_move(text_line_begin(text_l-1));
-    compute_enterpos();
 }
 
 int put_line_before() {
-    text_move(text_line_begin(text_l));
-    //int saved=text_gap;
+    text_move(text_fc_backward(EOL));
     fi (saved_lines.sz) text_putchar(saved_lines[i]);
-    //text_move(saved);
-    compute_enterpos();
+    text_move(text_line_begin(text_l-1));
 }
 
 int isletter(int c) {
@@ -780,7 +778,7 @@ void smart_delete() {
 
 void smart_enter() {
     current_command=CMD_NEWLINE;
-    int i=text_line_begin(text_l);
+    int i=text_fc_backward(EOL);
     int pos=0;
     while (i<text_gap && text[i]==' ') {
         i++;
@@ -793,7 +791,7 @@ void smart_enter() {
 void text_beginline() {
     text_move(text_fc_backward(EOL));
     return;
-    int begin=text_line_begin(text_l);
+    int begin=text_fc_backward(EOL);
     text_move(begin);
 //    int i=begin;
 //    while (i<text_gap && text[i]==' ') i++;
@@ -828,7 +826,7 @@ void text_endline() {
 
 void smart_enter2() {
     current_command=CMD_NEWLINE;
-    int i=text_line_begin(text_l);
+    int i=text_fc_backward(EOL);
     int pos=0;
     while (i<text_gap && text[i]==' ') {
         i++;
@@ -852,7 +850,7 @@ void smart_enter2() {
 // blank line at the end, open before.
 void open_line() {
     current_command=CMD_NEWLINE;
-    text_move(text_line_begin(text_l));
+    text_move(text_fc_backward(EOL));
     text_putchar(EOL);
     int pos=0;
     int i=text_restart;
@@ -1204,34 +1202,6 @@ void keydown() {
     line_goto(base_pos);
 }
 
-void ppage() 
-{
-    int temp=0;
-    if (screen_real_i==1) {
-        if (text_l<=1) return;
-        temp=text_l - int(screen_lines)+1;
-        temp=max(temp,1);
-    } else {
-        temp=text_l-int(screen_real_i)+1;
-    }
-    text_move(text_line_begin(temp));
-    compute_enterpos();
-}
-
-void npage() 
-{
-    int temp=0;
-    if (screen_real_i==screen_lines-2) {
-        if (text_l>=text_end-1) return;
-        temp=text_l+int(screen_lines)-1;
-        temp=min(temp,text_lines-1);
-    } else {
-        temp=text_l-int(screen_real_i)+int(screen_lines)-2;
-    }
-    text_move(text_line_begin(temp));
-    compute_enterpos();
-}
-
 int move(char c) {
     switch(c) {
         case KEY_END: text_endline();base_pos=screen_p;break;
@@ -1240,8 +1210,8 @@ int move(char c) {
         case KEY_RIGHT: text_move(text_restart+1);base_pos=screen_p;break;
         case KEY_UP: keyup();break;
         case KEY_DOWN: keydown();break;
-        case KEY_PPAGE: ppage();break; 
-        case KEY_NPAGE: npage();break;
+        case KEY_PPAGE: screen_ppage();break; 
+        case KEY_NPAGE: screen_npage();break;
         default:
             return 0;
     }

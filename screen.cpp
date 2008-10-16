@@ -486,6 +486,7 @@ void screen_init()
         keyword["else"]=YELLOW;
         keyword["return"]=YELLOW;
         keyword["break"]=YELLOW;
+        keyword["continue"]=YELLOW;
         keyword["switch"]=YELLOW;
         keyword["default"]=YELLOW;
         keyword["case"]=YELLOW;
@@ -535,10 +536,10 @@ void screen_redraw(int hint)
 
 int saved_line;
 void screen_save() {
-	saved_line=screen_real_i;
+    saved_line=screen_real_i;
 }
 void screen_restore() {
-	screen_redraw(saved_line);
+    screen_redraw(saved_line);
 }
 
 void screen_refresh() 
@@ -549,4 +550,24 @@ void screen_refresh()
         screen_highlight(); 
         screen_make_it_real();
         screen_done();
+}
+
+void screen_ppage() {
+	if (screen_real_i>=screen_lines-2) {
+		if (text_l-int(screen_lines)+1 <0)
+			return;
+ 	 	text_move(text_line_begin(text_l -int(screen_lines)+1));
+		compute_enterpos();
+	}
+	screen_redraw(screen_lines-2);
+}
+
+void screen_npage() {
+	if (screen_real_i<=1) {
+		if (text_l + int(screen_lines) > text_lines) 
+			return;
+		text_move(text_line_begin(text_l + int(screen_lines)-1));
+		compute_enterpos();
+	}
+	screen_redraw(1);
 }

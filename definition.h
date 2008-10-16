@@ -46,6 +46,9 @@ extern int     text_l;
 extern int     text_gap;
 extern int     text_restart;
 extern int     text_end;    
+extern void	   compute_enterpos();
+extern void	   text_move(int);
+extern int	   text_line_begin(int);
 
 extern string  text_highlight;
 extern string  text_message;
@@ -54,16 +57,14 @@ extern int     screen_l; // kind of real i ...
 
 extern void	   screen_save();
 extern void	   screen_restore();
-//extern void    screen_pgup();
-//extern void    screen_pgdown();
+extern void    screen_npage();
+extern void    screen_ppage();
 //extern void    screen_lineup();
 //extern void    screen_linedown();
 
 extern void    screen_init();
 extern void    screen_redraw(int hint=-1);
 extern void    screen_refresh();
-extern uint    screen_lines;
-extern uint    screen_real_i;
 extern uint    screen_lsize;
    
 extern uchar   term_getchar();

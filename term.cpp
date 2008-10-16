@@ -10,8 +10,10 @@
 /* for isprint .... */
 //#include <ctype.h>
 
-#define INISEQ    printf("\e[?1048h\e[?1047h\e[H");
-#define ENDSEQ    printf("\e[?1047l\e[?1048l");
+//#define INISEQ    printf("\e[?1048h\e[?1047h\e[H");
+//#define ENDSEQ    printf("\e[?1047l\e[?1048l");
+#define INISEQ    printf("\e[?1049h");
+#define ENDSEQ    printf("\e[?1049l");
 
 /* To remember original terminal attributes. */
 struct termios saved_attributes;

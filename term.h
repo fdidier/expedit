@@ -67,12 +67,12 @@ void term_putchar(int c);
 #define KEY_TAB         CTRL('I')
 #define KEY_ENTER       CTRL('M')
 
-#define KEY_UP          CTRL('U')
+#define KEY_UP          CTRL('A')
 #define KEY_DOWN        CTRL('K')
 #define KEY_LEFT        CTRL('J')
 #define KEY_RIGHT       CTRL('L')
 
-#define KEY_PPAGE       CTRL('P')
+#define KEY_PPAGE       CTRL('U')
 #define KEY_NPAGE       CTRL('N')
 
 #define KEY_DELETE      CTRL('X')
@@ -83,20 +83,20 @@ void term_putchar(int c);
 
 #define KEY_INSERT      CTRL('V') // insert next caracter untouched.
 
-#define KEY_FIND        CTRL('A')
+#define KEY_FIND        CTRL('F')
 #define KEY_BACK        CTRL('G')
 #define KEY_TILL        CTRL('T')
 
 #define KEY_DLINE       CTRL('D')
 #define KEY_OLINE       CTRL('O')
-#define KEY_PLINE       CTRL('F')
+#define KEY_PLINE       CTRL('P')
 #define KEY_YLINE       CTRL('Y')
 #define KEY_SLINE       CTRL('C')
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
 
-#define KEY_UNDO        CTRL('Z')
+#define KEY_UNDO        CTRL('[')
 #define KEY_REPEAT      CTRL('R')
 
 /* Test with capital Letter 
