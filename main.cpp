@@ -293,7 +293,19 @@ void text_absolute_move(int i) {
     else text_move(i + text_restart-text_gap);
 }
 
+ 
+#define CMD_FALLBACK    0
+#define CMD_EDIT        1
+#define CMD_LINE        2
+#define CMD_SEARCH      3
+#define CMD_NEWLINE     4
+#define CMD_UNDO		5
+
+int    last_command;
+int    current_command;
+
 void text_undo() {
+	current_command=CMD_UNDO;
     undo_flush();
     struct s_undo op;
 
@@ -439,10 +451,8 @@ void line_goto(int pos) {
     }
     text_move(i);
 }
-void compute_enterpos() {
-    //line_goto(base_pos);
-}
 
+/**************************************************/
 /* Remember what was done on the last edited_line */
 
 string  record_cmd;
@@ -496,7 +506,7 @@ void record(char c)
 {
     if (current_line != text_l) {
         if (!current_cmd.empty()) {
-            if (!clear_trailing()) 
+            if (!clear_trailing() && c!=KEY_TAB) 
                 current_cmd.pb(c);
             record_end();
         }
@@ -620,16 +630,6 @@ int text_getchar()
 /*******************************************************************/
 /* implementation of the commands 
  */
- 
-#define CMD_FALLBACK    0
-#define CMD_EDIT        1
-#define CMD_LINE        2
-#define CMD_SEARCH      3
-#define CMD_NEWLINE     4
-
-int    last_command;
-int    current_command;
-
 string inserted;
 string saved_lines;
 
@@ -705,17 +705,18 @@ void del_line() {
 }
 
 int put_line_after() {
-    // pb on last line !!
-    // should be a problem, since always a trailing EOL..
-    text_move(text_fc_forward(EOL)+1);
-    fi (saved_lines.sz) text_putchar(saved_lines[i]);
-    text_move(text_line_begin(text_l-1));
+    text_move(text_fc_forward(EOL));
+	text_putchar(EOL);
+    fi (saved_lines.sz-1) 
+		text_putchar(saved_lines[i]);
+    text_move(text_fc_backward(EOL));
 }
 
 int put_line_before() {
     text_move(text_fc_backward(EOL));
     fi (saved_lines.sz) text_putchar(saved_lines[i]);
-    text_move(text_line_begin(text_l-1));
+    text_move(text_gap-1);
+    text_move(text_fc_backward(EOL));
 }
 
 int isletter(int c) {
@@ -772,7 +773,6 @@ void smart_backspace() {
     text_backspace();
 }
 
-// remove indent when necessary
 void smart_delete() {
 }
 
@@ -791,71 +791,26 @@ void smart_enter() {
 void text_beginline() {
     text_move(text_fc_backward(EOL));
     return;
-    int begin=text_fc_backward(EOL);
-    text_move(begin);
-//    int i=begin;
-//    while (i<text_gap && text[i]==' ') i++;
-//    if (i>=text_gap) {
-//        i = text_restart;
-//        while (i<text.sz && text[i]==' ') i++;
-//    }
-//    text_move(i);
-//
-//    int c = text_getchar();
-//    if (c==KEY_BEGIN) text_move(begin);
-//    else {
-//        replay = c;
-//        return;
-//    }
-//
-//    c = text_getchar();
-//    if (c==KEY_BEGIN) text_move(0);
-//    else replay=c;
 }
  
 void text_endline() {
     text_move(text_fc_forward(EOL));
     return;
-    int i=text_restart;
-    while (i<text.sz && text[i]!=EOL) i++;
-    text_move(i);
-//    int c = text_getchar();
-//    if (c==KEY_END) text_move(text.sz-1);
-//    else replay=c;
 }
 
-void smart_enter2() {
-    current_command=CMD_NEWLINE;
-    int i=text_fc_backward(EOL);
-    int pos=0;
-    while (i<text_gap && text[i]==' ') {
-        i++;
-        pos++;
-    }
-    if (i>=text_gap) {
-        i = text_restart;
-        while (i<text.sz && text[i]==' ') {
-            i++;
-            pos++;
-        }
-    }
-    
-    i=text_restart;
-    while (i<text.sz && text[i]!=EOL) i++;
-    text_move(i);
-    text_putchar(EOL);
-    fj(pos) text_putchar(' ');
+void open_line_after() {
+    text_move(text_fc_forward(EOL));
+	smart_enter();
 }
 
-// blank line at the end, open before.
-void open_line() {
+void open_line_before() {
     current_command=CMD_NEWLINE;
     text_move(text_fc_backward(EOL));
     text_putchar(EOL);
     int pos=0;
     int i=text_restart;
     while (text[i++]==' ') pos++;
-    text_move(text_line_begin(text_l-1));
+    text_move(text_gap-1);
     for (int j=0; j<pos; j++) text_putchar(' ');
 }
 
@@ -864,7 +819,6 @@ void open_line() {
 /******************************************************************/
 
 int text_save() {
-    /* flush swap file */
     swap_stream.flush();
 
     ofstream s;
@@ -1101,7 +1055,6 @@ int text_jump(string s) {
     if (num>0) num = (num-1) % text_lines;
     int i=text_line_begin(num);
     text_move(i);
-    compute_enterpos();
     return 1;
 }
 
@@ -1150,14 +1103,20 @@ void text_command() {
 
 /******************************************************************/
 /******************************************************************/
+int redo_mark=-1;
 
 void smart_op() 
 {
+//	text_message="!!!!!\n";
     current_command=last_command;
-    if (last_command==CMD_NEWLINE) {
-        text_spacetab();
-        return;
-    }
+//	if (last_command==CMD_UNDO) {
+  //  	text_absolute_move(redo_mark);
+	//	return;
+//	}
+//    if (last_command==CMD_NEWLINE) {
+  //      text_spacetab();
+    //    return;
+//    }
     if (last_command==CMD_LINE) {
         put_line_before();
         return;
@@ -1191,15 +1150,18 @@ int smart_repeat() {
 /******************************************************************/
 
 void keyup() {
-    if(text_l>0) 
-        text_move(text_line_begin(text_l-1));
-    line_goto(base_pos);
+    if(text_l>0) {
+		text_move(text_fc_backward(EOL)-1);
+		text_move(text_fc_backward(EOL)); 
+        line_goto(base_pos);
+    }
 }
 
 void keydown() {
-    if(text_l+1<text_lines) 
-        text_move(text_line_begin(text_l+1));
-    line_goto(base_pos);
+    if(text_l+1<text_lines) {
+        text_move(text_fc_forward(EOL)+1);
+		line_goto(base_pos);
+	}
 }
 
 int move(char c) {
@@ -1220,11 +1182,13 @@ int move(char c) {
 
 int mainloop() {
     int movement=0;
-    int saved_mark=-1;
+	int saved_mark=-1;
     last_command = CMD_FALLBACK;
     int c='q';
     int temp;
     while (1) {
+//		text_message=" \n";
+//		text_message[0]=c;
         current_command = CMD_FALLBACK;
         c = text_getchar();
         if (move(c)) {
@@ -1237,17 +1201,18 @@ int mainloop() {
                 case ':' : text_command();break;
                 case KEY_ESC :
                 case '`' :  if (movement && saved_mark>=0) {
+							//	redo_mark=text_gap;
                                 text_absolute_move(saved_mark);
                                 screen_restore();
-                                movement = 0;
+							//	current_cmd=CMD_UNDO;
                             } else {
                                 text_undo();
                             }
                             break;
                 case '1' : record_display();break;
 //              case KEY_UNDO: text_undo();break;
-                case KEY_OLINE: open_line();break;
-                case KEY_SLINE: smart_enter2();break;
+                case KEY_OLINE: open_line_before();break;
+                case KEY_SLINE: open_line_after();break;
                 case KEY_DLINE: replay=c;del_line(); record_end();break;
                 case KEY_YLINE: yank_line();break;
                 case KEY_INSERT: put_line_before();break;
@@ -1255,7 +1220,7 @@ int mainloop() {
                 case KEY_TAB: smart_op();break;
                 case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
                 case KEY_SAVE  : text_save();record_end();break;
-                case KEY_ENTER: smart_enter();break;
+                case KEY_ENTER : smart_enter();break;
                 case KEY_BACKSPACE: 
                             if (text_gap==0 || text[text_gap-1]==EOL) {
                                 replay=KEY_DLINE;del_line();record_end();
@@ -1344,18 +1309,35 @@ int main(int argc, char **argv)
     swap_stream.flush();
     swap_stream.close();
 
-    // Open swap file 
+    // Swap file name 
     // problem with directory ...
     swap_index = 0;
     swap_filename = "." + string(argv[1]) + string(".swp"); 
+
+	// Read old pos 
+	// pretty ugly but other sol 
+	// difficult with c++ file handling
+	int oldpos=0;
+	ifstream test;
+	test.open(swap_filename.c_str());
+	if (test) {
+		test >> oldpos;
+	}
+	test.close();
+	
+	// Open swap file
     swap_stream.open(swap_filename.c_str());
     if (!swap_stream) {
         printf("Error openning swap file %s\n", swap_filename.c_str());
         exit(0);
     }
+	// to be able to write the position 
+	// without destroing swap at the end...
+	fi (16) swap_stream << ' ';
+	swap_stream << EOL;
 
     /* Set position in the text */
-    text_move(0);
+    text_move(oldpos);
     screen_init();
     screen_redraw();
     term_set_title((uchar *)argv[1]);
@@ -1364,17 +1346,22 @@ int main(int argc, char **argv)
 
     // output current position to be able
     // to restore it the next time we open the file
-    swap_stream.put('\t');
+    // erase the beginning of the swap file
+    // wanted to use the end but then difficult to read !!
+    swap_stream.seekp(0);
     swap_stream << text_gap;
     swap_stream.put(EOL);
     swap_stream.flush();
     swap_stream.close();
 
+	// leave the terminal correctly
+//	reset_input_mode();
 
-    undo_flush();
-    fi (undo_stack.sz) {
-        cout << undo_stack[i].num << " " << undo_stack[i].pos << endl;
-        cout << undo_stack[i].content << EOL;
-    }
+	// Debug info ...
+//    undo_flush();
+//    fi (undo_stack.sz) {
+//        cout << undo_stack[i].num << " " << undo_stack[i].pos << endl;
+//        cout << undo_stack[i].content << EOL;
+//    }
     exit(0);
 }

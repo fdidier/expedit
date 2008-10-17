@@ -557,7 +557,6 @@ void screen_ppage() {
 		if (text_l-int(screen_lines)+1 <0)
 			return;
  	 	text_move(text_line_begin(text_l -int(screen_lines)+1));
-		compute_enterpos();
 	}
 	screen_redraw(screen_lines-2);
 }
@@ -567,7 +566,6 @@ void screen_npage() {
 		if (text_l + int(screen_lines) > text_lines) 
 			return;
 		text_move(text_line_begin(text_l + int(screen_lines)-1));
-		compute_enterpos();
 	}
 	screen_redraw(1);
 }
