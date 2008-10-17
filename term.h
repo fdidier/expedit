@@ -97,7 +97,7 @@ void term_putchar(int c);
 #define KEY_SAVE        CTRL('S')
 
 #define KEY_UNDO        CTRL('[')
-#define KEY_REPEAT      CTRL('R')
+#define KEY_REDO        CTRL('R')
 
 /* Test with capital Letter 
  * Use tab to change capitalisation */
