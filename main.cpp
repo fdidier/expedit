@@ -15,9 +15,6 @@ int          text_l;        // current line number
 int          text_modif;    // indicateur de modif...
 int          text_blocsize = 1024;
 
-int          screen_p;  // position in the line
-int          screen_l;  // line position on screen
-
         
 void dump_error(char *err) {
     fprintf(stderr,"err: ");
@@ -49,10 +46,6 @@ void text_init()
 {
     undo_pos=-1;
 
-    screen_p=0;
-    screen_l=0;
-    screen_lsize=10;
-
     text_gap=0;
     text_l=0;
     text_restart=0;
@@ -62,40 +55,6 @@ void text_init()
     text_check(text_blocsize);
     undo_mrk = -1;
 }   
-
-void compute_screen_p() 
-{
-    screen_p = 0;
-    int i=text_gap;
-    while (i>0 && text[i-1] !=EOL ) {
-        if (isok((uchar) text[i-1])) screen_p++;
-        i--;
-    }
-}
-
-void inc_screen_p(uchar c) 
-{
-    if (c==EOL) {
-        screen_p=0;
-        screen_l++;
-    } else if (isok(c)) {
-        screen_p++;
-        if ((screen_p % screen_lsize) == 0) 
-            screen_l++;
-    }
-}
-
-void dec_screen_p(uchar c) 
-{
-    if (c==EOL) {
-        compute_screen_p();
-        screen_l--;
-    } else if (isok(c)) {
-        if ((screen_p % screen_lsize) == 0) 
-            screen_l--;
-        screen_p--;
-    }
-}
 
 void edit_text() {
     text_modif++;
@@ -167,7 +126,6 @@ void text_add(int c)
         text_lines++;
     }
     text[text_gap++]=c;
-    inc_screen_p(c);
 }
 
 void text_sup() 
@@ -205,7 +163,6 @@ void text_backspace(int flag=1)
         text_gap--;
     } while (flag && text_gap>0 && !isok((uchar) text[text_gap])); 
 
-    dec_screen_p(text[text_gap]);
     if (text[text_gap]==EOL) {
         text_l--;
         text_lines--;
@@ -273,13 +230,11 @@ void text_move(int i)
             text_gap--;
             text[text_restart]=text[text_gap];
             text[text_gap]='#';
-            dec_screen_p(text[text_restart]);
         }
     } else {
         /* utf8 correction up */
         while (i<text.sz && !isok((uchar) text[i])) i++;
         while (text_restart!=i) {
-            inc_screen_p(text[text_restart]);
             if (text[text_restart]==EOL) text_l++;
             text[text_gap] = text[text_restart];
             text[text_restart]='#';
@@ -458,11 +413,22 @@ int text_line_begin(int l)
 // after a change of line,
 // base pos should be the original position the cursor goto
 int base_pos;
-//int mod_base_pos=0;
+
+int compute_pos() 
+{
+    int res=0;
+    int i=text_gap;
+    while (i>0 && text[i-1] !=EOL ) {
+        if (isok((uchar) text[i-1])) res++;
+        i--;
+    }
+	return res;
+}
 
 // goto a given pos in the current line.
 void line_goto(int pos) {
     int i=text_fc_backward(EOL);
+    if (i==text_gap) i=text_restart;
     int p=0;
     while (p<pos && i<text.sz && text[i]!=EOL) {
         i++;
@@ -532,7 +498,7 @@ void record(char c)
             record_end();
         }
         current_line = text_l;
-        current_pos = screen_p;
+        current_pos = compute_pos();
         return;
     }
     if (c==KEY_TAB || 
@@ -571,12 +537,9 @@ int      swap_index;
  * So everything here can work without any display.
  * like in redo mode. or macro.
  *
- * We take care of utf-8 for the actual cursor position.
- * This is the only place after witch screen_p has is true meaning.
  */
 void text_refresh() 
 {
-//    if (mod_base_pos) base_pos = screen_p;
     screen_refresh();
     text_message.clear();
 }
@@ -809,16 +772,6 @@ void smart_enter() {
     fj(pos) text_putchar(' ');
 }
 
-void text_beginline() {
-    text_move(text_fc_backward(EOL));
-    return;
-}
- 
-void text_endline() {
-    text_move(text_fc_forward(EOL));
-    return;
-}
-
 void open_line_after() {
     text_move(text_fc_forward(EOL));
     smart_enter();
@@ -975,10 +928,17 @@ string text_complete()
 }
 
 int insert() {
-   // mod_base_pos=0;
     inserted.clear();
     while (1) {
         int c = text_getchar();
+        if (c==KEY_INSERT) {
+            int c=text_getchar();
+            if (c!=EOL) {
+                text_typechar(c);
+                inserted.pb(c);
+                continue;
+            }
+        }
         if (isprint(c)) {
             if (c==' ' && text_spacetab()) {
                 inserted.pb(EOL);
@@ -991,10 +951,6 @@ int insert() {
         if (c == KEY_BACKSPACE && !inserted.empty()) {
                 text_backspace();
                 inserted.erase(inserted.end()-1);
-//              if (inserted.empty()) {
-//                  last_command=CMD_FALLBACK;
-//                  return 1;
-//              }
                 continue;
         }
         if (c == KEY_TAB) {
@@ -1166,34 +1122,24 @@ int smart_repeat() {
 /******************************************************************/
 /******************************************************************/
 
-void keyup() {
-    if(text_l>0) {
-        text_move(text_fc_backward(EOL)-1);
-        text_move(text_fc_backward(EOL)); 
-        line_goto(base_pos);
-    }
-}
-
-void keydown() {
-    if(text_l+1<text_lines) {
-        text_move(text_fc_forward(EOL)+1);
-        line_goto(base_pos);
-    }
-}
-
 int move(char c) {
+	int b=1;
     switch(c) {
-        case KEY_END: text_endline();base_pos=screen_p;break;
-        case KEY_BEGIN: text_beginline();base_pos=screen_p;break;
-        case KEY_LEFT: text_move(text_gap-1);base_pos=screen_p;break;
-        case KEY_RIGHT: text_move(text_restart+1);base_pos=screen_p;break;
-        case KEY_UP: keyup();break;
-        case KEY_DOWN: keydown();break;
-        case KEY_PPAGE: screen_ppage();break; 
-        case KEY_NPAGE: screen_npage();break;
+        case KEY_FIND: text_move(text_fc_forward(text_getchar()));break;
+        case KEY_TILL: text_move(text_fc_backward(text_getchar()));break;
+        case KEY_END: text_move(text_fc_forward(EOL));break;
+        case KEY_BEGIN: text_move(text_fc_backward(EOL));break;
+        case KEY_LEFT: text_move(text_gap-1);break;
+        case KEY_RIGHT: text_move(text_restart+1);break;
+        case KEY_UP: text_move(text_fc_backward(EOL)-1);b=0;break;
+        case KEY_DOWN: text_move(text_fc_forward(EOL)+1);b=0;break;
+        case KEY_PPAGE: screen_ppage();b=0;break; 
+        case KEY_NPAGE: screen_npage();b=0;break;
         default:
             return 0;
     }
+	if (b) base_pos=compute_pos();
+	else line_goto(base_pos);
     return 1;
 }
 
@@ -1213,8 +1159,6 @@ int mainloop() {
             current_command = last_command;
         } else {
             switch (c) {
-                case KEY_FIND: temp=text_getchar();text_move(text_fc_forward(temp)); break;
-                case KEY_TILL: temp=text_getchar();text_move(text_fc_backward(temp)); break;
                 case ':' : text_command();break;
                 case KEY_ESC :
                 case '`' :  if (movement && saved_mark>=0) {
@@ -1245,8 +1189,8 @@ int mainloop() {
                                 smart_backspace();
                             break;
                 case KEY_DELETE: text_delete();break;
-                default:  
-                    if (isprint(c)) {
+                default:
+                    if (isprint(c) || c==KEY_INSERT) {
                         if (c==' ' && text_spacetab()) break;
                         replay=c;
                         insert();
@@ -1355,6 +1299,8 @@ int main(int argc, char **argv)
 
     /* Set position in the text */
     text_move(oldpos);
+    base_pos=compute_pos();
+    
     screen_init();
     screen_redraw();
     term_set_title((uchar *)argv[1]);

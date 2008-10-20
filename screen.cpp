@@ -22,7 +22,6 @@ uint     screen_wanted_j;
 
 /* Other variables */
 int screen_scroll_hint;
-int screen_saved_num;
 
 /************************************************************************/
 /* screen_real and screen_wanted allocation functions                   */
@@ -254,19 +253,51 @@ void screen_done()
 /*********************************************************************************/
 /* Specific functions for displaying a text structure                            */
 /*********************************************************************************/
+int saved_gap;
 
 /* Try to set the wanted curs position and the scroll_hint in a clever way */
-/* (no wrap version) */
 void screen_movement_hint() 
 {
-        /* screen cursor position */
-        screen_wanted_j = screen_p;
-        screen_wanted_j %= screen_columns;
+        /* screen column position */
+		{
+			int i = text_gap;
+			int j = 0;
+			while (i>0 && text[i-1]!=EOL) { 
+				if (isok((uchar) text[i-1])) j++;	
+				i--;
+			}
+	        screen_wanted_j = j % screen_columns;
+		}
 
-        /* screen cursor line move according to line num */
-        int temp = int(screen_l)-int(screen_saved_num);
-        temp += int(screen_real_i);
-        screen_saved_num = screen_l;
+		/* screen line position */
+		int temp = screen_real_i;
+		if (text_gap>saved_gap) {
+			int i=text_gap;
+			int count=0;
+			while (i>0 && i>saved_gap && temp<=screen_lines) {
+				i--;
+			    if (isok((uchar) text[i])) count++;	
+				if (text[i]==EOL || count==screen_columns) {
+					temp++;
+					count=0;
+				}
+			}
+		} 
+		if (text_gap<saved_gap){
+			int i=text_restart;
+			int count=0;
+			while (i<text_end && (text_gap + (i-text_restart)<saved_gap) 
+							  && temp >= -int(screen_lines)) {
+				if (isok((uchar) text[i])) count++;
+				if (text[i]==EOL || count==screen_columns) {
+					temp--;
+					count=0;
+				}
+				i++;
+			}
+		}
+			
+		saved_gap=text_gap;
 
         /* make the screen wanted cursor line in range and set the scroll_hint */
         screen_scroll_hint = 0;
@@ -313,7 +344,7 @@ void screen_compute_wanted()
     // compute screen_wanted_j
     
     screen_lsize = screen_columns-shift;
-    screen_wanted_j = shift + (screen_p % ( screen_columns-shift));
+    screen_wanted_j = shift + (screen_wanted_j % ( screen_columns-shift));
 
     // find the top left character position
     int i=text_gap;
