@@ -145,7 +145,6 @@ void undo_flush()
     undo_stack.pb(op);
     undo_pos=-1;
     undo_mrk=-1;
-    undo_last=-1;
 }
 
 void undo_savepos() {
@@ -156,6 +155,7 @@ void undo_start() {
     undo_flush();
     undo_pos = text_gap;
     undo_mrk = undo_last;
+    undo_last=-1;
 }
 
 void text_add(int c) 
@@ -182,7 +182,7 @@ void text_sup()
 
 void text_putchar(int c) 
 {
-    if (undo_pos == -1 || undo_pos>=text_gap) {
+    if (undo_pos == -1 || undo_pos>text_gap) {
         undo_start();
     }
 
@@ -925,6 +925,7 @@ string search_comp(string c, int &i)
 
 string text_complete() 
 {
+    undo_flush();
     possibilities.clear();
     int i=text_gap-1;
     string begin;
@@ -949,7 +950,7 @@ string text_complete()
         fi (end.sz) text_typechar(end[i]);
         c=text_getchar();
     }
-    
+        
     // No match or user not happy,
     // look in the text
     while (c==KEY_TAB) {
@@ -965,12 +966,7 @@ string text_complete()
             c=text_getchar();
         }
     }
-    
-    if (c==KEY_ESC) {
-        text_gap-=end.sz;
-    } else {
-        replay=c;
-    }
+    replay=c;
     
     if (!end.empty()) 
         last_completions[begin]=end;
