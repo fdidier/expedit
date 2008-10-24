@@ -85,6 +85,23 @@ void term_init()
 int  stored_char = 0;
 char input_char;
 
+uchar shift_escape_sequence() {
+	uchar c;
+    if (read(STDIN_FILENO, &c, 1) && c== ';') 
+    if (read(STDIN_FILENO, &c, 1) && c== '2') 
+    if (read(STDIN_FILENO, &c, 1)) {
+		switch(c) {
+			case 'A' : return KEY_PPAGE;
+			case 'B' : return KEY_NPAGE;
+			case 'C' : return KEY_END;
+			case 'D' : return KEY_BEGIN;
+			case 'H' : return KEY_BEGIN;
+			case 'F' : return KEY_END;
+		}
+	} 
+	return KEY_ESC;
+}
+
 uchar tilde_escape_sequence(char c)
 {
         uchar a;
@@ -114,6 +131,10 @@ uchar tilde_escape_sequence(char c)
 
         if (read (STDIN_FILENO, &c, 1)) {
                 if (c == '~') return a;
+				if (c == ';' && a==KEY_DELETE)
+					if (read(STDIN_FILENO, &c, 1) && c=='2')
+					if (read(STDIN_FILENO, &c, 1) && c=='~')
+						return KEY_CUT;
         }
         return KEY_ESC;
 }
@@ -124,7 +145,7 @@ uchar escape_sequence()
         tcgetattr (STDIN_FILENO, &tattr);
 
         /* Set a timeout on the input */
-        tattr.c_cc[VTIME] = 1;   /* wait 0.5 seconds */
+        tattr.c_cc[VTIME] = 1;   /* wait 0.1 seconds */
         tattr.c_cc[VMIN]  = 0;
         tcsetattr (STDIN_FILENO, TCSANOW, &tattr);
 
@@ -153,6 +174,9 @@ uchar escape_sequence()
                                         case 'F' :
                                                 a = KEY_END;
                                                 break;
+						                case '1' :
+												a = shift_escape_sequence();
+												break;
                                         default :
                                                 a = tilde_escape_sequence(c); 
                                                 break;
@@ -189,6 +213,12 @@ uchar term_getchar()
                 return escape_sequence();
         else    
                 return c;
+}
+
+uchar term_rawchar() {
+	char c;
+	read (STDIN_FILENO, &c, 1);
+	return c;
 }
 
 void term_pushback(uchar c)

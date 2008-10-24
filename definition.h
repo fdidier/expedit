@@ -44,6 +44,7 @@ extern vector<char>   text;
 extern int     text_lines;
 extern int     text_l;
 extern int     text_gap;
+extern int     undo_pos;
 extern int     text_restart;
 extern int     text_end;    
 extern void	   text_move(int);
@@ -64,6 +65,7 @@ extern void    screen_redraw(int hint=-1);
 extern void    screen_refresh();
 extern uint    screen_lsize;
    
+extern uchar   term_rawchar();
 extern uchar   term_getchar();
 extern void    term_set_title(uchar *);
 extern void    reset_input_mode();

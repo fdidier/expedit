@@ -62,41 +62,47 @@ void term_putchar(int c);
 
 #define CTRL(c)         ((c) & 0x1F)
 
-// important one with space
+// Key we can't change :( 
 #define KEY_ESC         CTRL('[')
 #define KEY_TAB         CTRL('I')
+#define KEY_BACKSPACE   CTRL('H')
 #define KEY_ENTER       CTRL('M')
 
-#define KEY_UP          CTRL('A')
-#define KEY_DOWN        CTRL('K')
-#define KEY_LEFT        CTRL('J')
-#define KEY_RIGHT       CTRL('L')
+// Key that the user can acces without ctrl
+#define KEY_PPAGE       CTRL('^')
+#define KEY_NPAGE       CTRL('_')
+#define KEY_DELETE      CTRL(']')
+#define KEY_INSERT      CTRL('\\') 
 
-#define KEY_PPAGE       CTRL('U')
-#define KEY_NPAGE       CTRL('N')
+// same here but no room ...
+#define KEY_DOWN        CTRL('J')
+#define KEY_UP          CTRL('K')
 
-#define KEY_DELETE      CTRL('X')
-#define KEY_BACKSPACE   CTRL('H')
+#define KEY_LEFT        CTRL('W')
+#define KEY_RIGHT       CTRL('A')
 
-#define KEY_END         CTRL('E')
-#define KEY_BEGIN       CTRL('B')
+#define KEY_END         CTRL('L')
+#define KEY_BEGIN       CTRL('Y')
 
-#define KEY_INSERT      CTRL('V') // insert next caracter untouched.
+#define KEY_PREV        CTRL('P')
+#define KEY_NEXT        CTRL('N')
 
 #define KEY_FIND        CTRL('F')
-#define KEY_BACK        CTRL('G')
+#define KEY_GOTO        CTRL('G')
+#define KEY_BACK        CTRL('B')
 #define KEY_TILL        CTRL('T')
 
-#define KEY_DLINE       CTRL('D')
-#define KEY_OLINE       CTRL('O')
-#define KEY_PLINE       CTRL('P')
-#define KEY_YLINE       CTRL('Y')
-#define KEY_SLINE       CTRL('C')
+#define KEY_DISP        CTRL('Z')
+
+#define KEY_CUT        CTRL('X')
+#define KEY_COPY       CTRL('C')
+#define KEY_PASTE      CTRL('V')
+#define KEY_OLINE      CTRL('O')
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
 
-#define KEY_UNDO        CTRL('[')
+#define KEY_UNDO        CTRL('U')
 #define KEY_REDO        CTRL('R')
 
 /* Test with capital Letter 

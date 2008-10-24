@@ -282,19 +282,11 @@ void screen_movement_hint()
 					count=0;
 				}
 			}
-		} 
+		}
+		// scroll hint and line is false if we move more than one line !!
+		// to correct 
 		if (text_gap<saved_gap){
-			int i=text_restart;
-			int count=0;
-			while (i<text_end && (text_gap + (i-text_restart)<saved_gap) 
-							  && temp >= -int(screen_lines)) {
-				if (isok((uchar) text[i])) count++;
-				if (text[i]==EOL || count==screen_columns) {
-					temp--;
-					count=0;
-				}
-				i++;
-			}
+			if (text_gap + screen_real_j<saved_gap) temp--;
 		}
 			
 		saved_gap=text_gap;
@@ -303,7 +295,7 @@ void screen_movement_hint()
         screen_scroll_hint = 0;
 
         if (temp<=0) {
-                screen_scroll_hint = temp;
+                screen_scroll_hint = temp-1;
                 screen_wanted_i = 1;
                 if (text_l==0) screen_wanted_i=0;
         } else {
