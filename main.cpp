@@ -606,7 +606,7 @@ string inserted;
 string saved_lines;
 
 string last_line_commands;
-// tab on the same line, strip las command group
+// tab on the same line, strip last command group
 // otherwise execute all.
 
 void yank_line() {
@@ -689,10 +689,6 @@ int put_line_before() {
     fi (saved_lines.sz) text_putchar(saved_lines[i]);
     text_move(text_gap-1);
     text_move(text_fc_backward(EOL));
-}
-
-int isletter(int c) {
-    return ((c>='a'&&c<='z') || (c>='A'&& c<='Z'));
 }
 
 int capitalise(int c) {
@@ -780,6 +776,19 @@ void smart_enter() {
         i++;
         pos++;
     }
+    // special traduction
+//    if (text[text_restart]!=EOL) 
+//        return text_move(text_fc_forward(EOL));
+//    if (i==text_gap && text[text_restart]==EOL) {
+  //      text_delete();
+ //       if (isletter(text[text_restart])) {
+   //         while (text[text_restart]!=EOL) text_delete();
+     //   } else {
+    //        text_move(text_fc_forward(EOL));
+      //      text_putchar(EOL);
+    //  }
+      //  return;
+   // }
     text_putchar(EOL);
     fj(pos) text_putchar(' ');
 }
@@ -834,14 +843,6 @@ int text_exit() {
 // Completion
 // todo : search in other direction when no match
 /******************************************************************/
-
-int isletter(char c) {
-    if (c>='a' && c<='z') return 1;
-    if (c>='A' && c<='Z') return 1;
-    if (c=='_') return 1;
-    if (c<0) return 1;
-    return 0;
-}
 
 // dictionnary
 // so we do not propose twice the same completion !
@@ -921,7 +922,8 @@ string text_complete()
     while (c==KEY_TAB) {
         if (end.sz>0) {
             fi (end.sz) 
-                text_backspace();
+                if (isok(end[i])) 
+                    text_backspace();
         }
         if (c==KEY_TAB) {
             end=search_comp(begin,pos);
@@ -1146,6 +1148,49 @@ void smart_op()
     play_macro=record_cmd;
 }
 
+// Justify the whole paragraph where
+// a paragraph is a set of line that start with a letter (no white)
+void justify() {
+    int i=text_gap;
+    int last=-1;
+    char c=text[text_restart]; 
+    while (i>0 && (text[i-1]!=EOL || isletter(c))) {
+        if (text[i-1]==EOL) last=i;
+        i--;
+        c=text[i];
+    }
+    if (last<0 || i==0) last=i;
+    
+    text_move(last);
+    i=text_restart;
+    while (i+1<text_end && (text[i]!=EOL || isletter(text[i+1]))) {
+        if (text[i]==EOL) {
+            text_move(i);
+            text_delete();
+            text_putchar(' ');
+        }
+        i++;
+    }
+    text_move(last);
+    i=text_restart;
+    int count=0;
+    int b=-1;
+    while (i<text_end && text[i]!=EOL) {
+        if (text[i]==' ') b=i;
+        if (isok(text[i])) count++;
+        if (count>=79) {
+            if (b>0) text_move(b);
+            else text_move(i);
+            text_delete();
+            text_putchar(EOL);
+            count=0;
+            b=-1;
+			i = text_restart-1;
+        }
+        i++;
+    }
+}
+
 /******************************************************************/
 /******************************************************************/
 
@@ -1196,6 +1241,7 @@ int mainloop() {
             current_command = last_command;
         } else {
             switch (c) {
+                case '/' :
                 case KEY_FIND : record_end();text_command();break;
                 case KEY_UNDO :
                         if (movement && saved_mark>=0) {
@@ -1207,20 +1253,29 @@ int mainloop() {
                             text_undo();
                         }
                         break;
-                case KEY_DISP: record_display();break;
+//                case KEY_DISP: record_display();break;
                 case KEY_TILL: search_id();break;
                 case KEY_NEXT: text_search(cmd);break;
                 case KEY_PREV: text_search(cmd);break;
                 case KEY_REDO: text_redo();break;
-                case KEY_OLINE: open_line_before();break;
+    //            case KEY_OLINE: open_line_before();break;
+                case KEY_OLINE: smart_enter();break;
+                case KEY_DLINE: text_move(text_fc_forward(EOL)+1);c=KEY_CUT;
                 case KEY_CUT:   replay=c;del_line(); record_end();break;
                 case KEY_COPY:  yank_line();break;
+                case KEY_JUSTIFY: justify();break;
                 case KEY_PASTE: put_line_before();break;
                 case KEY_TAB:   smart_op();break;
                 case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
                 case KEY_SAVE  : text_save();record_end();break;
-                case KEY_ENTER : smart_enter();base_pos=compute_pos();break;
-                case KEY_BACKSPACE: smart_backspace();break;
+                case KEY_ENTER : 
+                    if (text[text_restart]!=EOL) 
+                        text_move(text_fc_forward(EOL));
+                    else smart_enter();
+                    base_pos=compute_pos();
+                    break;
+                case KEY_BACKSPACE:
+                        smart_backspace();break;
                 case KEY_DELETE: smart_delete();break;
                 default:
                     if (isprint(c) || c==KEY_INSERT) {

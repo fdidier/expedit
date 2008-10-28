@@ -8,7 +8,6 @@
 /* screen dimension */
 uint     screen_lines;
 uint     screen_columns;
-uint     screen_lsize;
 
 /* screen currently displayed */
 uint     **screen_real;
@@ -55,8 +54,8 @@ void    screen_alloc()
                 free(screen_real);
         }
 
-        screen_wanted = screen_alloc_internal(screen_lines, screen_columns+1);
-        screen_real   = screen_alloc_internal(screen_lines, screen_columns+1);
+        screen_wanted = screen_alloc_internal(screen_lines, 2*screen_columns+1);
+        screen_real   = screen_alloc_internal(screen_lines, 2*screen_columns+1);
 }
 
 /************************************************************************/
@@ -80,7 +79,7 @@ void screen_clear()
 /* Change the real cursor position if necessary */
 void screen_move_curs(uint i, uint j) 
 {
-    if (screen_real_j == screen_columns) {
+    if (screen_real_j == screen_columns+1) {
         screen_real_j = 0;
         screen_real_i ++;
     }
@@ -106,7 +105,7 @@ void screen_print(uint c)
 {
     term_putchar(c);
     if (isok(c & 0xFF)) {
-        if (screen_real_j == screen_columns) {
+        if (screen_real_j == screen_columns+1) {
             screen_real_j = 0;
             screen_real_i ++;
         }
@@ -212,7 +211,7 @@ void screen_make_it_real()
                         else if (w != r) {
                                 screen_move_curs(i,poss);
                                 screen_print(w);
-                                if (screen_real_j == screen_columns) {
+                                if (screen_real_j == screen_columns+1) {
                                         poss=0;
                                 }
                         }
@@ -236,76 +235,51 @@ void screen_make_it_real()
 /* Function to call when the real screen is equal to the wanted one */
 void screen_done() 
 {
-        /* put the cursor as wanted */
-        screen_move_curs(screen_wanted_i, screen_wanted_j);
-        screen_scroll_hint = 0;
+// put the cursor as wanted 
+    screen_move_curs(screen_wanted_i, screen_wanted_j);
+    screen_scroll_hint = 0;
 
-        /* swap the two screen array to update screen real */
-        uint **temp = screen_real;
-        screen_real = screen_wanted;
-        screen_wanted = temp;
+// swap the two screen array to update screen real 
+    uint **temp = screen_real;
+    screen_real = screen_wanted;
+    screen_wanted = temp;
 
-        /* make the change */
-        fflush(stdout);
+// make the change 
+    fflush(stdout);
 }
 
 
 /*********************************************************************************/
 /* Specific functions for displaying a text structure                            */
 /*********************************************************************************/
-int saved_gap;
+int saved_num;
 
 /* Try to set the wanted curs position and the scroll_hint in a clever way */
 void screen_movement_hint() 
 {
-        /* screen column position */
-		{
-			int i = text_gap;
-			int j = 0;
-			while (i>0 && text[i-1]!=EOL) { 
-				if (isok((uchar) text[i-1])) j++;	
-				i--;
-			}
-	        screen_wanted_j = j % screen_columns;
+    /* screen line position */
+    int temp = int(text_l)-int(saved_num);
+    temp += int(screen_real_i);
+    saved_num = text_l;
+    
+    /* make the screen wanted cursor line in range and set the scroll_hint */
+    screen_scroll_hint = 0;
+    if (temp<=0) {
+		if (text_l==0) {
+	        screen_scroll_hint = temp;
+			screen_wanted_i=0;
+		} else {
+	        screen_scroll_hint = temp-1;
+	        screen_wanted_i=1;
 		}
-
-		/* screen line position */
-		int temp = screen_real_i;
-		if (text_gap>saved_gap) {
-			int i=text_gap;
-			int count=0;
-			while (i>0 && i>saved_gap && temp<=screen_lines) {
-				i--;
-			    if (isok((uchar) text[i])) count++;	
-				if (text[i]==EOL || count==screen_columns) {
-					temp++;
-					count=0;
-				}
-			}
-		}
-		// scroll hint and line is false if we move more than one line !!
-		// to correct 
-		if (text_gap<saved_gap){
-			if (text_gap + screen_real_j<saved_gap) temp--;
-		}
-			
-		saved_gap=text_gap;
-
-        /* make the screen wanted cursor line in range and set the scroll_hint */
-        screen_scroll_hint = 0;
-
-        if (temp<=0) {
-                screen_scroll_hint = temp-1;
-                screen_wanted_i = 1;
-                if (text_l==0) screen_wanted_i=0;
-        } else {
-                screen_wanted_i = temp;
-                int top = screen_lines-2;
-                if (screen_wanted_i>top) {
-                        screen_scroll_hint = screen_wanted_i - top;
-                        screen_wanted_i = top;
-                }
+    } else {
+        screen_wanted_i = temp;
+        int top = screen_lines-2;
+        if (screen_wanted_i>top) {
+                screen_scroll_hint = screen_wanted_i - top;
+                screen_wanted_i = top;
         }
+    }
 }
 
 /* compute the wanted view of the screen */
@@ -313,19 +287,21 @@ void screen_movement_hint()
 // if there is line number
 int shift;
 
+// attention char/uchar ??
 void screen_compute_wanted() 
 {
-    fi (screen_lines) 
-        screen_wanted[i][screen_columns]=EOL;
+//    fn (screen_lines) {
+//        screen_wanted[n][screen_columns]=EOL;
+//    }
 
     // not enough line ?
     if (screen_wanted_i > text_l) 
         screen_wanted_i = text_l;
 
     // line numbers
-    int opt_line=0;
+    int opt_line=1;
     if (opt_line) {
-            int num = text_l+screen_lines-screen_wanted_i;
+            int num = text_lines;
             shift=1;
             while (num) {
                 shift++;
@@ -333,81 +309,57 @@ void screen_compute_wanted()
             }
             shift=max(4,shift);
     }
+	
     // compute screen_wanted_j
-    
-    screen_lsize = screen_columns-shift;
-    screen_wanted_j = shift + (screen_wanted_j % ( screen_columns-shift));
-
-    // find the top left character position
-    int i=text_gap;
-    int l=screen_wanted_i;
-    int n=text_l;
-    while (1) {
-        int s=0;
-        while (i>0 && text[i-1]!=EOL) {
-            i--;
-            s++;
-        }
-        l -= s / (screen_columns - shift);
-        if (l<=0) break;
-        n--;
+    int i = text_gap;
+    int l = 0;
+    while (i>0 && text[i-1]!=EOL) { 
+        if (isok((uchar) text[i-1])) l++;   
         i--;
-        l--;
     }
+    screen_wanted_j = shift + (l % ( screen_columns-shift));
 
-    while (l<0) {
-        i+= (screen_columns - shift);
-        l++;
-    }
+	// find the beginning of the first line.
+	fn (screen_wanted_i) {
+		i--;
+		while (i>0 && text[i-1]!=EOL) i--;
+	}
 
-    // fill screen_wanted
+	// correct if i==0
+	if (i==text_gap) i=text_restart;
 
-    // i = position in text
-    // l = screen_line
-    // j = screen_column
-    // n = current_line number
-    
-    for (l=0; l<screen_lines; l++) 
-    {
-        int j=0;
-        // display line number
-        // first version : no empty number when swapped line 
-        int num=n+1;
-        while (j<shift) {
+	// fill the line one by one
+	fn (screen_lines) {
+		int j=0;
+		int s=0;
+		int num=text_l-screen_wanted_i+n +1;
+		if (num > text_lines) num=0;
+		while (j<shift) {
             if (num==0 || j==0) {
-                screen_wanted[l][shift-1-j]= ' ';
+                screen_wanted[n][shift-1-j]= ' ';
             } else {
-                screen_wanted[l][shift-1-j]= ((num%10) +'0') | (YELLOW <<8);
+                screen_wanted[n][shift-1-j]= ((num%10) +'0') | (YELLOW <<8);
                 num/=10;
             }
             j++;
-        }
-
-        if (i==text_gap) i=text_restart;
-        while (i<text_end && text[i]!=EOL && j<screen_columns) {
-            screen_wanted[l][j] = text[i];
-            j++;
-            i++;
-            if (i==text_gap) i=text_restart;
-        }
-        
-        if (text[i]==EOL) {
-            n++;
-            i++;
-            // j can be equal to text_columns but it is fine.
-            screen_wanted[l][j]=EOL;
-        } 
-
-        // end of text
-        if (i==text_end) {
-            l++;
-            while (l<screen_lines) { 
-                screen_wanted[l][0]=EOL;
-                l++;
-            }
-            break;
-        }
-    }
+			s++;
+		}
+		while (i<text_end && text[i]!=EOL) {
+			int temp=s;
+			if (n==screen_wanted_i) 
+				temp= s - (l - screen_wanted_j + shift);
+			if (temp>=shift && temp<screen_columns) {
+				screen_wanted[n][j] = text[i];
+				j++;
+			}
+			if (isok(text[i])) s++;
+			i++;
+			if (i==text_gap) i=text_restart;
+		};
+		i++;
+		if (i==text_gap) i=text_restart;
+		screen_wanted[n][j]=EOL;
+	}
 
     // message ?
     if (!text_message.empty()) {
@@ -416,7 +368,7 @@ void screen_compute_wanted()
             screen_wanted[screen_lines-1][i] = text_message[i];
             i++;
         }
-        screen_wanted[screen_lines-1][i]='\n';
+        screen_wanted[screen_lines-1][i]=EOL;
     }
 }
 
@@ -427,8 +379,21 @@ void screen_highlight()
     int bloc=0; 
     int line=0; 
     uint **yo=screen_wanted;
-//  fi(screen_lines) fj(screen_columns) if (yo[i][j]!=EOL) yo[i][j]|=WHITE<<8; 
-//  return;
+    fi(screen_lines) {
+        int blue=0;
+        fj(screen_columns) {
+			if (j<shift) continue;
+            yo[i][j] &= 0xFF;
+            if (yo[i][j]!=EOL)
+            if (isspecial(yo[i][j])) { 
+                    if (j==shift) blue=1;
+                    yo[i][j] |= RED <<8; 
+            } else {
+                if (blue) yo[i][j] |= MAGENTA << 8;
+            }
+        }
+    }
+    return;
     fi (screen_lines) {
         line = 0;
         for (int j=shift; j<screen_columns; j++) {
@@ -453,7 +418,7 @@ void screen_highlight()
             }
         }
     }
-
+    return;
     /* c keywords */
     fi (screen_lines) {
         int j=0;
@@ -575,20 +540,21 @@ void screen_refresh()
         screen_done();
 }
 
+
+// mouvement bizarre des fois !!
 void screen_ppage() {
-	if (screen_real_i>=screen_lines-2) {
-		if (text_l-int(screen_lines)+1 <0)
-			return;
- 	 	text_move(text_line_begin(text_l -int(screen_lines)+1));
-	}
-	screen_redraw(screen_lines-2);
+	if (screen_real_i==text_l) return;
+    if (screen_real_i>=screen_lines-2) {
+        text_move(text_line_begin(text_l -int(screen_lines)+1));
+    }
+    screen_redraw(screen_lines-2);
 }
 
 void screen_npage() {
-	if (screen_real_i<=1) {
-		if (text_l + int(screen_lines) > text_lines) 
-			return;
-		text_move(text_line_begin(text_l + int(screen_lines)-1));
-	}
-	screen_redraw(1);
+	if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) 
+		return;
+    if (screen_real_i<=1) {
+        text_move(text_line_begin(text_l + int(screen_lines)-1));
+    }
+    screen_redraw(1);
 }

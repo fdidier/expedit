@@ -7,9 +7,6 @@
 #include <stdlib.h>
 #include <termios.h>
 
-/* for isprint .... */
-//#include <ctype.h>
-
 //#define INISEQ    printf("\e[?1048h\e[?1047h\e[H");
 //#define ENDSEQ    printf("\e[?1047l\e[?1048l");
 #define INISEQ    printf("\e[?1049h");
@@ -35,6 +32,7 @@ void term_get_size(uint &x, uint &y)
 void reset_input_mode (void)
 {
         tcsetattr (STDIN_FILENO, TCSANOW, &saved_attributes);
+        NOMOUSE;
         ENDSEQ; 
         fflush(stdout);
 }
@@ -62,6 +60,7 @@ void set_input_mode (void)
        tcsetattr (STDIN_FILENO, TCSAFLUSH, &tattr);
 
        INISEQ;
+       SETMOUSE;
        fflush(stdout);
 }
 
@@ -86,20 +85,20 @@ int  stored_char = 0;
 char input_char;
 
 uchar shift_escape_sequence() {
-	uchar c;
+    uchar c;
     if (read(STDIN_FILENO, &c, 1) && c== ';') 
     if (read(STDIN_FILENO, &c, 1) && c== '2') 
     if (read(STDIN_FILENO, &c, 1)) {
-		switch(c) {
-			case 'A' : return KEY_PPAGE;
-			case 'B' : return KEY_NPAGE;
-			case 'C' : return KEY_END;
-			case 'D' : return KEY_BEGIN;
-			case 'H' : return KEY_BEGIN;
-			case 'F' : return KEY_END;
-		}
-	} 
-	return KEY_ESC;
+        switch(c) {
+            case 'A' : return KEY_PPAGE;
+            case 'B' : return KEY_NPAGE;
+            case 'C' : return KEY_END;
+            case 'D' : return KEY_BEGIN;
+            case 'H' : return KEY_BEGIN;
+            case 'F' : return KEY_END;
+        }
+    } 
+    return KEY_ESC;
 }
 
 uchar tilde_escape_sequence(char c)
@@ -131,12 +130,30 @@ uchar tilde_escape_sequence(char c)
 
         if (read (STDIN_FILENO, &c, 1)) {
                 if (c == '~') return a;
-				if (c == ';' && a==KEY_DELETE)
-					if (read(STDIN_FILENO, &c, 1) && c=='2')
-					if (read(STDIN_FILENO, &c, 1) && c=='~')
-						return KEY_CUT;
+                if (c == ';' && a==KEY_DELETE)
+                    if (read(STDIN_FILENO, &c, 1) && c=='2')
+                    if (read(STDIN_FILENO, &c, 1) && c=='~')
+                        return KEY_CUT;
         }
         return KEY_ESC;
+}
+
+uchar mouse_sequence() {
+    uchar button,x,y;
+    if (!read(STDIN_FILENO, &button, 1)) return KEY_ESC;
+    if (!read(STDIN_FILENO, &x, 1)) return KEY_ESC;
+    if (!read(STDIN_FILENO, &y, 1)) return KEY_ESC;
+    if (button=='`') return KEY_PPAGE; // wheel up
+    if (button=='a') return KEY_NPAGE; // wheel down
+    if (button=='!') { // mid
+        GETSEL;
+        return 'a';
+    } else if (button=='\"') {
+        SETSEL("fred");
+        return 'a';
+    }
+
+    return KEY_ESC;
 }
 
 uchar escape_sequence()
@@ -156,6 +173,9 @@ uchar escape_sequence()
                 if (c == '[') {
                         if (read (STDIN_FILENO, &c, 1)) {
                                 switch (c) {
+                                        case 'M' :
+                                            a=mouse_sequence();
+                                            break;
                                         case 'A' : 
                                                 a = KEY_UP;
                                                 break;
@@ -174,9 +194,9 @@ uchar escape_sequence()
                                         case 'F' :
                                                 a = KEY_END;
                                                 break;
-						                case '1' :
-												a = shift_escape_sequence();
-												break;
+                                        case '1' :
+                                                a = shift_escape_sequence();
+                                                break;
                                         default :
                                                 a = tilde_escape_sequence(c); 
                                                 break;
@@ -216,9 +236,9 @@ uchar term_getchar()
 }
 
 uchar term_rawchar() {
-	char c;
-	read (STDIN_FILENO, &c, 1);
-	return c;
+    char c;
+    read (STDIN_FILENO, &c, 1);
+    return c;
 }
 
 void term_pushback(uchar c)
@@ -258,15 +278,14 @@ void term_putchar(int c)
         t += 64;
         color = RED;
     }
-    if (t>=128) {
-        if (!isok(t)) {
-            putchar(t);
-            return;
-        }
+
+    if (!isok(t)) {
+          putchar(t);
+          return;
     }
 
     /* set color if necessary */
-    if ( t != ' ' && fg_color != color) {
+    if (fg_color != color) {
         SET_FG_COLOR(color);
         fg_color = color;
     }
