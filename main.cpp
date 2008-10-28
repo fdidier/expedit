@@ -776,19 +776,19 @@ void smart_enter() {
         i++;
         pos++;
     }
-    // special traduction
+//  special traduction
 //    if (text[text_restart]!=EOL) 
 //        return text_move(text_fc_forward(EOL));
 //    if (i==text_gap && text[text_restart]==EOL) {
-  //      text_delete();
- //       if (isletter(text[text_restart])) {
-   //         while (text[text_restart]!=EOL) text_delete();
-     //   } else {
-    //        text_move(text_fc_forward(EOL));
-      //      text_putchar(EOL);
-    //  }
-      //  return;
-   // }
+//       text_delete();
+//        if (isletter(text[text_restart])) {
+//          while (text[text_restart]!=EOL) text_delete();
+//    } else {
+//         text_move(text_fc_forward(EOL));
+//       text_putchar(EOL);
+//   }
+//   return;
+//  }
     text_putchar(EOL);
     fj(pos) text_putchar(' ');
 }
@@ -897,7 +897,7 @@ string text_complete()
     string begin;
     string end;
 
-    // if previous white, do intelligent stuff
+//  if previous white, do intelligent stuff
     while (i>0 && !isletter(text[i]) && text[i]!=EOL) {
         begin = text[i] + begin;
         i--;
@@ -909,7 +909,7 @@ string text_complete()
     int  pos=i;
     char c=KEY_TAB;
     
-    // look first in the map
+//  look first in the map
     if (last_completions.find(begin)!=last_completions.end()) {
         end = last_completions[begin];
         possibilities.insert(end);
@@ -917,8 +917,8 @@ string text_complete()
         c=text_getchar();
     }
         
-    // No match or user not happy,
-    // look in the text
+//  No match or user not happy,
+//  look in the text
     while (c==KEY_TAB) {
         if (end.sz>0) {
             fi (end.sz) 
@@ -1185,7 +1185,7 @@ void justify() {
             text_putchar(EOL);
             count=0;
             b=-1;
-			i = text_restart-1;
+            i = text_restart-1;
         }
         i++;
     }
@@ -1241,25 +1241,25 @@ int mainloop() {
             current_command = last_command;
         } else {
             switch (c) {
-                case '/' :
+//              case '/' :
                 case KEY_FIND : record_end();text_command();break;
                 case KEY_UNDO :
                         if (movement && saved_mark>=0) {
-            //                redo_mark=text_gap;
+//                          redo_mark=text_gap;
                             text_absolute_move(saved_mark);
                             screen_restore();
-            //                current_cmd=CMD_JUMP;
+//                          current_cmd=CMD_JUMP;
                         } else {
                             text_undo();
                         }
                         break;
-//                case KEY_DISP: record_display();break;
+//              case KEY_DISP: record_display();break;
                 case KEY_TILL: search_id();break;
                 case KEY_NEXT: text_search(cmd);break;
                 case KEY_PREV: text_search(cmd);break;
                 case KEY_REDO: text_redo();break;
-    //            case KEY_OLINE: open_line_before();break;
-                case KEY_OLINE: smart_enter();break;
+//              case KEY_OLINE: open_line_before();break;
+                case KEY_OLINE: open_line_after();break;
                 case KEY_DLINE: text_move(text_fc_forward(EOL)+1);c=KEY_CUT;
                 case KEY_CUT:   replay=c;del_line(); record_end();break;
                 case KEY_COPY:  yank_line();break;
@@ -1269,9 +1269,10 @@ int mainloop() {
                 case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
                 case KEY_SAVE  : text_save();record_end();break;
                 case KEY_ENTER : 
-                    if (text[text_restart]!=EOL) 
-                        text_move(text_fc_forward(EOL));
-                    else smart_enter();
+//                    if (text[text_restart]!=EOL) 
+//                        text_move(text_fc_forward(EOL));
+//                    else 
+                    smart_enter();
                     base_pos=compute_pos();
                     break;
                 case KEY_BACKSPACE:
@@ -1302,10 +1303,10 @@ int main(int argc, char **argv)
     /* basic init */
     text_init();
 
-    // todo:
-    // get the file timestamp and make good use of it
-    // resume editing to the current pos.
-    // +-num line command option
+//  todo:
+//  get the file timestamp and make good use of it
+//  resume editing to the current pos.
+//  +-num line command option
     
     /* Open file */
     ifstream inputStream;
@@ -1340,11 +1341,11 @@ int main(int argc, char **argv)
     /* close file */
     inputStream.close();
 
-    // Do a backup of the original file
-    // not really useful if we keep the same swap file for all the editing session
-    // and we use a versionning system
-    // But safer for all the development phase, and we need a starting point for the 
-    // swap reconstruction to work ...
+//  Do a backup of the original file
+//  not really useful if we keep the same swap file for all the editing session
+//  and we use a versionning system
+//  But safer for all the development phase, and we need a starting point for the 
+//  swap reconstruction to work ...
     swap_filename = "." + string(argv[1]) + string(".old");
     swap_stream.open(swap_filename.c_str());
     if (!swap_stream) {
@@ -1352,20 +1353,20 @@ int main(int argc, char **argv)
         exit(0);
     }
     
-    // the text_gap is at the end of the file
-    // after the loading process ...
+//  the text_gap is at the end of the file
+//  after the loading process ...
     fi (text_gap) swap_stream.put(text[i]);
     swap_stream.flush();
     swap_stream.close();
 
-    // Swap file name 
-    // problem with directory ...
+//  Swap file name 
+//  problem with directory ...
     swap_index = 0;
     swap_filename = "." + string(argv[1]) + string(".swp"); 
 
-    // Read old pos 
-    // pretty ugly but other sol 
-    // difficult with c++ file handling
+//  Read old pos 
+//  pretty ugly but other sol 
+//  difficult with c++ file handling
     int oldpos=0;
     ifstream test;
     test.open(swap_filename.c_str());
@@ -1380,8 +1381,8 @@ int main(int argc, char **argv)
         printf("Error openning swap file %s\n", swap_filename.c_str());
         exit(0);
     }
-    // to be able to write the position 
-    // without destroing swap at the end...
+//  to be able to write the position 
+//  without destroing swap at the end...
     fi (16) swap_stream << ' ';
     swap_stream << EOL;
 
@@ -1395,20 +1396,20 @@ int main(int argc, char **argv)
 
     mainloop();
 
-    // output current position to be able
-    // to restore it the next time we open the file
-    // erase the beginning of the swap file
-    // wanted to use the end but then difficult to read !!
+//  output current position to be able
+//  to restore it the next time we open the file
+//  erase the beginning of the swap file
+//  wanted to use the end but then difficult to read !!
     swap_stream.seekp(0);
     swap_stream << text_gap;
     swap_stream.put(EOL);
     swap_stream.flush();
     swap_stream.close();
 
-    // leave the terminal correctly
+//  leave the terminal correctly
 //  reset_input_mode();
 
-    // Debug info ...
+//    Debug info ...
 //    undo_flush();
 //    fi (undo_stack.sz) {
 //        cout << undo_stack[i].num << " " << undo_stack[i].pos << endl;

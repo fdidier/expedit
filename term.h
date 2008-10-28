@@ -19,7 +19,12 @@ void term_putchar(int c);
 #define SELECTION_BIT      (1 << 17)
 
 
-/* Escape sequence for terminal command */
+/* Escape sequence for xterm */
+
+#define SETMOUSE        printf("\e[?1002h")
+#define NOMOUSE         printf("\e[?1002l")
+#define GETSEL          printf("\e]52;p;?\007")
+#define SETSEL(a)       printf("\e]52;p;%s\007",a);
 
 #define TITLE(a)        printf("\e]2;%s\007",a)
 
@@ -78,11 +83,11 @@ void term_putchar(int c);
 #define KEY_DOWN        CTRL('J')
 #define KEY_UP          CTRL('K')
 
-#define KEY_LEFT        CTRL('W')
-#define KEY_RIGHT       CTRL('A')
+#define KEY_LEFT        CTRL('L')
+#define KEY_RIGHT       CTRL('R')
 
-#define KEY_END         CTRL('L')
-#define KEY_BEGIN       CTRL('Y')
+#define KEY_END         CTRL('E')
+#define KEY_BEGIN       CTRL('A')
 
 #define KEY_PREV        CTRL('P')
 #define KEY_NEXT        CTRL('N')
@@ -94,16 +99,19 @@ void term_putchar(int c);
 
 #define KEY_DISP        CTRL('Z')
 
-#define KEY_CUT        CTRL('X')
+#define KEY_CUT        CTRL('D')
 #define KEY_COPY       CTRL('C')
 #define KEY_PASTE      CTRL('V')
 #define KEY_OLINE      CTRL('O')
+#define KEY_DLINE      CTRL('X')
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
 
 #define KEY_UNDO        CTRL('U')
-#define KEY_REDO        CTRL('R')
+#define KEY_REDO        CTRL('Z')
+
+#define KEY_JUSTIFY     CTRL('Y')
 
 /* Test with capital Letter 
  * Use tab to change capitalisation */

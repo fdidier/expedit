@@ -26,17 +26,21 @@ typedef vector<string>  VS;
 #define fj(n)       fr(j,n)
 #define fk(n)       fr(k,n)
 #define fm(n)       fr(m,n)
+#define fn(m)       fr(n,m)
 
 #define all(c)      (c).begin(),(c).end()
 #define pb          push_back
 #define sz          size()
 
 /* text macro */
-#define isok(c)    ((c)<0x80 || (c)>0xBF)
-#define isprint(c) ((c)>=32)
-#define issmall(c) ((c)>='a' && (c)<='z')
-#define isbig(c)   ((c)>='A' && (c)<='Z')
-#define EOL        '\n'
+#define isok(c)      ((uchar)(c)<0x80 || (uchar)(c)>0xBF)
+#define isprint(c)   ((c)>=32)
+#define issmall(c)   ((c)>='a' && (c)<='z')
+#define isbig(c)     ((c)>='A' && (c)<='Z')
+#define isnum(c)     ((c)>='0' && (c)<='9')
+#define isletter(c)  (issmall(c) || isbig(c) || (c)=='_' || (uchar)(c)>=128) 
+#define isspecial(c) (!isletter(c) && !isnum(c) && (uchar)(c)>32 && (c)!=' ')
+#define EOL          '\n'
 #define TABSTOP    4
 
 /* function declaration */
