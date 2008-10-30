@@ -34,7 +34,7 @@ typedef vector<string>  VS;
 
 /* text macro */
 #define isok(c)      ((uchar)(c)<0x80 || (uchar)(c)>0xBF)
-#define isprint(c)   ((c)>=32)
+#define isprint(c)   ((uchar)(c)>=32)
 #define issmall(c)   ((c)>='a' && (c)<='z')
 #define isbig(c)     ((c)>='A' && (c)<='Z')
 #define isnum(c)     ((c)>='0' && (c)<='9')
@@ -51,14 +51,14 @@ extern int     text_gap;
 extern int     undo_pos;
 extern int     text_restart;
 extern int     text_end;    
-extern void	   text_move(int);
-extern int	   text_line_begin(int);
+extern void    text_move(int);
+extern int     text_line_begin(int);
 
 extern string  text_highlight;
 extern string  text_message;
 
-extern void	   screen_save();
-extern void	   screen_restore();
+extern void    screen_save();
+extern void    screen_restore();
 extern void    screen_npage();
 extern void    screen_ppage();
 //extern void    screen_lineup();

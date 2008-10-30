@@ -168,7 +168,7 @@ void text_backspace(int flag=1)
         text_lines--;
     } 
 
-    // respect indent on the rest of the line if necessary
+//  respect indent on the rest of the line if necessary
 //  if (flag)
 //  if (text_restart+1<text.sz && 
 //      text[text_restart]==' ' &&
@@ -318,11 +318,28 @@ void text_typechar(int c)
 //      text_delete();
 }
 
+// return index off the next EOL
+int next_eol() {
+    int i=text_restart;
+    while (i<text_end && text[i]!=EOL) 
+        i++;
+    return i;
+}
+
+// return index just after the previous EOL
+int prev_eol() {
+    int i=text_gap;
+    while (i>0 && text[i-1]!=EOL) 
+        i--;
+    return i;
+}
+
 // both functions call each other but only with EOL
 // and so the program can't be stuck
 // return text_gap if nothing found
 int text_fc_forward(char c);
 
+// Not used and wrong for utf8 : replace...
 // return the indice of the previous occurence of c in line 
 // stop just before c
 int text_fc_backward(char c) {
@@ -351,6 +368,7 @@ int text_fc_forward(char c) {
     return text_gap;
 }
 
+/* Not used exept for goto and pgup/down ... */
 /* return the indice of the begining of the line l 
  * in [0,gap[ [restart,end[*/
 int text_line_begin(int l) 
@@ -431,7 +449,7 @@ int compute_pos()
 
 // goto a given pos in the current line.
 void line_goto(int pos) {
-    int i=text_fc_backward(EOL);
+    int i=prev_eol();
     if (i==text_gap) i=text_restart;
     int p=0;
     while (p<pos && i<text.sz && text[i]!=EOL) {
@@ -448,6 +466,7 @@ void line_goto(int pos) {
 
 string  record_cmd;
 int     record_pos;
+int     record_line;
 
 string current_cmd;
 int    current_pos;
@@ -467,6 +486,7 @@ void record_end() {
     if (!current_cmd.empty()) {
         record_cmd = current_cmd;
         record_pos = current_pos;
+        record_line = current_line;
     }
     current_cmd.clear();
     current_line=text_l;
@@ -484,7 +504,7 @@ void record_display() {
 void record(char c) 
 {
     if (c== KEY_LEFT || c==KEY_RIGHT || c==KEY_UP || c==KEY_DOWN ||
-        c== KEY_NPAGE || c==KEY_PPAGE) {
+        c== KEY_NPAGE || c==KEY_PPAGE || current_line!= text_l) {
         // c is the command that made me exit the line...
         if (!current_cmd.empty() && c!=KEY_TAB) 
             current_cmd.pb(c);
@@ -493,6 +513,7 @@ void record(char c)
     }
     if (current_cmd.empty() && c==KEY_TAB) 
         return;
+    current_line=text_l;
     current_cmd.pb(c);
 }
 
@@ -602,8 +623,8 @@ int text_getchar()
 /*******************************************************************/
 /* implementation of the commands 
  */
-string inserted;
-string saved_lines;
+string inserted("");
+string saved_lines("");
 
 string last_line_commands;
 // tab on the same line, strip last command group
@@ -631,13 +652,13 @@ void del_line() {
     current_command=CMD_LINE;
 
     // move to line begin
-    text_move(text_fc_backward(EOL));
+    text_move(prev_eol());
 
     // Clean this,  mecanism not pretty since c==KEY_DLINE
     while (1) {
         int c = text_getchar();
         // delete whole line
-        if (c==KEY_CUT) {
+        if (c==KEY_DLINE) {
             // no more line ??
             if (text_lines==0) return;
             
@@ -657,7 +678,7 @@ void del_line() {
         // small redo
         // Beware directly modify text !!
         // clean this
-        if ((c==KEY_UNDO || c=='`') && !saved_lines.empty()) {
+  /*      if ((c==KEY_UNDO || c=='`') && !saved_lines.empty()) {
             int i=saved_lines.sz-1;
             do {
                 text[--text_restart]=saved_lines[i];
@@ -670,25 +691,28 @@ void del_line() {
             text_lines++;
             saved_lines.erase(saved_lines.begin()+i+1,saved_lines.end());
             continue;
-        }
+        } */
         replay = c;
         break;
     }
 }
 
-int put_line_after() {
-    text_move(text_fc_forward(EOL));
+void put_line_after() {
+    if (saved_lines.empty()) return;
+    text_move(next_eol());
     text_putchar(EOL);
-    fi (saved_lines.sz-1) 
+    fi (saved_lines.sz) 
         text_putchar(saved_lines[i]);
-    text_move(text_fc_backward(EOL));
+    text_move(prev_eol());
 }
 
-int put_line_before() {
-    text_move(text_fc_backward(EOL));
-    fi (saved_lines.sz) text_putchar(saved_lines[i]);
+void put_line_before() {
+    if (saved_lines.empty()) return;
+    text_move(prev_eol());
+    fi (saved_lines.sz) 
+        text_putchar(saved_lines[i]);
     text_move(text_gap-1);
-    text_move(text_fc_backward(EOL));
+    text_move(prev_eol());
 }
 
 int capitalise(int c) {
@@ -770,37 +794,24 @@ void smart_delete() {
 
 void smart_enter() {
     current_command=CMD_NEWLINE;
-    int i=text_fc_backward(EOL);
+    int i=prev_eol();
     int pos=0;
     while (i<text_gap && text[i]==' ') {
         i++;
         pos++;
     }
-//  special traduction
-//    if (text[text_restart]!=EOL) 
-//        return text_move(text_fc_forward(EOL));
-//    if (i==text_gap && text[text_restart]==EOL) {
-//       text_delete();
-//        if (isletter(text[text_restart])) {
-//          while (text[text_restart]!=EOL) text_delete();
-//    } else {
-//         text_move(text_fc_forward(EOL));
-//       text_putchar(EOL);
-//   }
-//   return;
-//  }
     text_putchar(EOL);
     fj(pos) text_putchar(' ');
 }
 
 void open_line_after() {
-    text_move(text_fc_forward(EOL));
+    text_move(next_eol());
     smart_enter();
 }
 
 void open_line_before() {
     current_command=CMD_NEWLINE;
-    text_move(text_fc_backward(EOL));
+    text_move(prev_eol());
     text_putchar(EOL);
     int pos=0;
     int i=text_restart;
@@ -896,19 +907,25 @@ string text_complete()
     int i=text_gap-1;
     string begin;
     string end;
+    
+    int white=0;
+    if (i>=0 && !isletter(text[i])) white=1;
 
 //  if previous white, do intelligent stuff
-    while (i>0 && !isletter(text[i]) && text[i]!=EOL) {
+    while (i>=0 && !isletter(text[i]) && text[i]!=EOL) {
         begin = text[i] + begin;
         i--;
     }
-    while (i>0 && isletter(text[i])) {
+    while (i>=0 && isletter(text[i])) {
         begin = text[i] + begin;
         i--;
     }
-    int  pos=i;
-    char c=KEY_TAB;
     
+    if (i>=0 && text[i]==EOL) begin = EOL+begin;
+    int pos=i;
+    if (i<0) pos=i+1;
+
+    char c=KEY_TAB;    
 //  look first in the map
     if (last_completions.find(begin)!=last_completions.end()) {
         end = last_completions[begin];
@@ -935,7 +952,8 @@ string text_complete()
     }
     replay=c;
     
-    if (!end.empty()) 
+//  Save completion in map only if normal one
+    if (!end.empty() && !white) 
         last_completions[begin]=end;
     
     return end;
@@ -1066,13 +1084,15 @@ void text_command() {
     cmd.clear();
     char c;
     while (1) {
-        text_message=':'+cmd+'\n';
+        text_message='/'+cmd+'\n';
         c=text_getchar();
         if (isprint(c)) {
             cmd.pb(c);
             continue;
         }
         if (c==KEY_BACKSPACE) {
+            while (!cmd.empty() && !isok(cmd[cmd.sz-1]))
+                cmd.erase(cmd.end()-1);
             if (cmd.empty()) return;
             cmd.erase(cmd.end()-1);
             continue;
@@ -1126,10 +1146,10 @@ void smart_op()
         text_redo();
         return;
     }
-//    if (last_command==CMD_NEWLINE) {
-  //      smart_space();
-    //    return;
-//    }
+//  if (last_command==CMD_NEWLINE) {
+//      smart_space();
+//      return;
+//  }
     if (last_command==CMD_LINE) {
         put_line_before();
         return;
@@ -1139,8 +1159,8 @@ void smart_op()
 //        return;
 //    }
 
-    // Redo whole line op
-    // line_goto(record_pos); mieux sans si goto line implicite
+//  Redo whole line op
+//  line_goto(record_pos); mieux sans si goto line implicite
     if (!current_cmd.empty()) {
         //record_clear_trailing();
         record_end();
@@ -1178,7 +1198,7 @@ void justify() {
     while (i<text_end && text[i]!=EOL) {
         if (text[i]==' ') b=i;
         if (isok(text[i])) count++;
-        if (count>=79) {
+        if (count>=75) {
             if (b>0) text_move(b);
             else text_move(i);
             text_delete();
@@ -1199,22 +1219,49 @@ void justify() {
 // if still on the same line and line del : repeat del until
 // current position...
 int smart_repeat() {
+    if (!current_cmd.empty()) 
+        record_end();
+    play_macro=record_cmd;
 }
 
 /******************************************************************/
 /******************************************************************/
 
+// pb: how to track the column ??
+// we can do it in screen, if only screen commands, otherwise chg.
+// But we need it as well for macro it seems ! or ^J & ^K just go 
+// at the line begin ?? not conviced.
+int screen_cmd() {
+    char c;
+    int num=0;
+    while (1) {
+        c=text_getchar();
+        if (isnum(c)) {
+            num = 10*num + c-'0';
+        } else {
+            break;
+        }
+    }
+    switch(c) {
+        case 'l' : text_move(text_gap-num);break;
+        case 'r' : text_move(text_restart+num);break;
+    }
+}
+
 int move(char c) {
     int b=1;
     switch(c) {
+//      correct GOTO & BACK to work for utf8
+//      use search but don't leave the line,
+//      fc forward/backward is used only for EOL actually !!
         case KEY_GOTO: text_move(text_fc_forward(text_getchar()));break;
         case KEY_BACK: text_move(text_fc_backward(text_getchar()));break;
-        case KEY_END: text_move(text_fc_forward(EOL));break;
-        case KEY_BEGIN: text_move(text_fc_backward(EOL));break;
+        case KEY_END: text_move(next_eol());break;
+        case KEY_BEGIN: text_move(prev_eol());break;
         case KEY_LEFT: text_move(text_gap-1);break;
         case KEY_RIGHT: text_move(text_restart+1);break;
-        case KEY_UP: text_move(text_fc_backward(EOL)-1);b=0;break;
-        case KEY_DOWN: text_move(text_fc_forward(EOL)+1);b=0;break;
+        case KEY_UP: text_move(prev_eol()-1);b=0;break;
+        case KEY_DOWN: text_move(next_eol()+1);b=0;break;
         case KEY_PPAGE: screen_ppage();b=0;break; 
         case KEY_NPAGE: screen_npage();b=0;break;
         default:
@@ -1241,7 +1288,7 @@ int mainloop() {
             current_command = last_command;
         } else {
             switch (c) {
-//              case '/' :
+                case KEY_NULL : screen_cmd();break;
                 case KEY_FIND : record_end();text_command();break;
                 case KEY_UNDO :
                         if (movement && saved_mark>=0) {
@@ -1253,30 +1300,24 @@ int mainloop() {
                             text_undo();
                         }
                         break;
-//              case KEY_DISP: record_display();break;
+                case KEY_SELECT: break;
+                case KEY_DISP: record_display();break;
                 case KEY_TILL: search_id();break;
                 case KEY_NEXT: text_search(cmd);break;
-                case KEY_PREV: text_search(cmd);break;
+//              case KEY_PREV: text_search(cmd);break;
                 case KEY_REDO: text_redo();break;
 //              case KEY_OLINE: open_line_before();break;
-                case KEY_OLINE: open_line_after();break;
-                case KEY_DLINE: text_move(text_fc_forward(EOL)+1);c=KEY_CUT;
-                case KEY_CUT:   replay=c;del_line(); record_end();break;
-                case KEY_COPY:  yank_line();break;
+                case KEY_OLINE: open_line_after();base_pos=compute_pos();insert();break;
+                case KEY_DLINE: replay=c;del_line();record_end();break;
+                case KEY_YLINE: yank_line();break;
                 case KEY_JUSTIFY: justify();break;
-                case KEY_PASTE: put_line_before();break;
-                case KEY_TAB:   smart_op();break;
-                case KEY_QUIT  : if (text_exit()) return 0; record_end();break;
-                case KEY_SAVE  : text_save();record_end();break;
-                case KEY_ENTER : 
-//                    if (text[text_restart]!=EOL) 
-//                        text_move(text_fc_forward(EOL));
-//                    else 
-                    smart_enter();
-                    base_pos=compute_pos();
-                    break;
-                case KEY_BACKSPACE:
-                        smart_backspace();break;
+                case KEY_SPLIT: smart_repeat();break;
+                case KEY_PRINT: put_line_after();break;
+                case KEY_TAB: smart_op();break;
+                case KEY_QUIT: if (text_exit()) return 0; record_end();break;
+                case KEY_SAVE: text_save();record_end();break;
+                case KEY_ENTER: smart_enter();base_pos=compute_pos();insert();break;
+                case KEY_BACKSPACE: smart_backspace();break;
                 case KEY_DELETE: smart_delete();break;
                 default:
                     if (isprint(c) || c==KEY_INSERT) {

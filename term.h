@@ -67,6 +67,8 @@ void term_putchar(int c);
 
 #define CTRL(c)         ((c) & 0x1F)
 
+#define KEY_NULL        CTRL('@')
+
 // Key we can't change :( 
 #define KEY_ESC         CTRL('[')
 #define KEY_TAB         CTRL('I')
@@ -83,38 +85,38 @@ void term_putchar(int c);
 #define KEY_DOWN        CTRL('J')
 #define KEY_UP          CTRL('K')
 
+#define KEY_GOTO        CTRL('G')
+#define KEY_BACK        CTRL('B')
+
 #define KEY_LEFT        CTRL('L')
-#define KEY_RIGHT       CTRL('R')
+#define KEY_RIGHT       CTRL('W')
 
 #define KEY_END         CTRL('E')
 #define KEY_BEGIN       CTRL('A')
 
-#define KEY_PREV        CTRL('P')
+#define KEY_FIND        CTRL('F')
 #define KEY_NEXT        CTRL('N')
 
-#define KEY_FIND        CTRL('F')
-#define KEY_GOTO        CTRL('G')
-#define KEY_BACK        CTRL('B')
 #define KEY_TILL        CTRL('T')
 
 #define KEY_DISP        CTRL('Z')
 
-#define KEY_CUT        CTRL('D')
-#define KEY_COPY       CTRL('C')
-#define KEY_PASTE      CTRL('V')
-#define KEY_OLINE      CTRL('O')
-#define KEY_DLINE      CTRL('X')
+#define KEY_DLINE       CTRL('D')
+#define KEY_YLINE       CTRL('Y')
+#define KEY_OLINE       CTRL('O')
+
+#define KEY_PRINT       CTRL('P')
+
+#define KEY_SELECT      CTRL('X')
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
 
 #define KEY_UNDO        CTRL('U')
-#define KEY_REDO        CTRL('Z')
+#define KEY_REDO        CTRL('R') // ?? : redo mode w swap ??
 
-#define KEY_JUSTIFY     CTRL('Y')
-
-/* Test with capital Letter 
- * Use tab to change capitalisation */
+#define KEY_JUSTIFY     CTRL('V')
+#define KEY_SPLIT       CTRL('C')
 
 /* !! Warning with backup method */
 //#define KEY_ESC         CTRL('[')
