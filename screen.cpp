@@ -265,13 +265,13 @@ void screen_movement_hint()
     /* make the screen wanted cursor line in range and set the scroll_hint */
     screen_scroll_hint = 0;
     if (temp<=0) {
-		if (text_l==0) {
-	        screen_scroll_hint = temp;
-			screen_wanted_i=0;
-		} else {
-	        screen_scroll_hint = temp-1;
-	        screen_wanted_i=1;
-		}
+        if (text_l==0) {
+            screen_scroll_hint = temp;
+            screen_wanted_i=0;
+        } else {
+            screen_scroll_hint = temp-1;
+            screen_wanted_i=1;
+        }
     } else {
         screen_wanted_i = temp;
         int top = screen_lines-2;
@@ -309,7 +309,7 @@ void screen_compute_wanted()
             }
             shift=max(4,shift);
     }
-	
+    
     // compute screen_wanted_j
     int i = text_gap;
     int l = 0;
@@ -319,22 +319,22 @@ void screen_compute_wanted()
     }
     screen_wanted_j = shift + (l % ( screen_columns-shift));
 
-	// find the beginning of the first line.
-	fn (screen_wanted_i) {
-		i--;
-		while (i>0 && text[i-1]!=EOL) i--;
-	}
+    // find the beginning of the first line.
+    fn (screen_wanted_i) {
+        i--;
+        while (i>0 && text[i-1]!=EOL) i--;
+    }
 
-	// correct if i==0
-	if (i==text_gap) i=text_restart;
+    // correct if i==0
+    if (i==text_gap) i=text_restart;
 
-	// fill the line one by one
-	fn (screen_lines) {
-		int j=0;
-		int s=0;
-		int num=text_l-screen_wanted_i+n +1;
-		if (num > text_lines) num=0;
-		while (j<shift) {
+    // fill the line one by one
+    fn (screen_lines) {
+        int j=0;
+        int s=0;
+        int num=text_l-screen_wanted_i+n +1;
+        if (num > text_lines) num=0;
+        while (j<shift) {
             if (num==0 || j==0) {
                 screen_wanted[n][shift-1-j]= ' ';
             } else {
@@ -342,29 +342,30 @@ void screen_compute_wanted()
                 num/=10;
             }
             j++;
-			s++;
-		}
-		while (i<text_end && text[i]!=EOL) {
-			int temp=s;
-			if (n==screen_wanted_i) 
-				temp= s - (l - screen_wanted_j + shift);
-			if (temp>=shift && temp<screen_columns) {
-				screen_wanted[n][j] = text[i];
-				j++;
-			}
-			if (isok(text[i])) s++;
-			i++;
-			if (i==text_gap) i=text_restart;
-		};
-		i++;
-		if (i==text_gap) i=text_restart;
-		screen_wanted[n][j]=EOL;
-	}
+            s++;
+        }
+        while (i<text_end && text[i]!=EOL) {
+            int temp=s;
+            if (n==screen_wanted_i) 
+                temp= s - (l - screen_wanted_j + shift);
+            if (temp>=shift && temp<screen_columns) {
+                screen_wanted[n][j] = text[i];
+                j++;
+            }
+            if (isok(text[i])) s++;
+            i++;
+            if (i==text_gap) i=text_restart;
+        };
+        i++;
+        if (i==text_gap) i=text_restart;
+        screen_wanted[n][j]=EOL;
+    }
 
     // message ?
     if (!text_message.empty()) {
         int i=0;
-        while (text_message[i]!=EOL && i<screen_columns) {
+        while (i<text_message.sz && i<screen_columns) {
+            if (text_message[i]==EOL) text_message[i]='J';
             screen_wanted[screen_lines-1][i] = text_message[i];
             i++;
         }
@@ -382,7 +383,7 @@ void screen_highlight()
     fi(screen_lines) {
         int blue=0;
         fj(screen_columns) {
-			if (j<shift) continue;
+            if (j<shift) continue;
             yo[i][j] &= 0xFF;
             if (yo[i][j]!=EOL)
             if (isspecial(yo[i][j])) { 
@@ -543,7 +544,7 @@ void screen_refresh()
 
 // mouvement bizarre des fois !!
 void screen_ppage() {
-	if (screen_real_i==text_l) return;
+    if (screen_real_i==text_l) return;
     if (screen_real_i>=screen_lines-2) {
         text_move(text_line_begin(text_l -int(screen_lines)+1));
     }
@@ -551,8 +552,8 @@ void screen_ppage() {
 }
 
 void screen_npage() {
-	if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) 
-		return;
+    if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) 
+        return;
     if (screen_real_i<=1) {
         text_move(text_line_begin(text_l + int(screen_lines)-1));
     }

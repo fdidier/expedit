@@ -470,10 +470,11 @@ void line_goto(int pos) {
 /* Remember what was done on the last edited_line */
 /**************************************************/
 
+
 // string of commands
 string  record_cmd;
-// position at the end of the command
-int     record_pos;
+// gap position at the end of the command
+int     record_gap;
 // line at the start of the command
 int     record_line;
 
@@ -490,55 +491,65 @@ int     record_line;
 // - new commands on line change
 // - new commands on search (commands start with KEY_NEXT or PREV)
 
-string current_cmd;
-int    current_pos;
-int    current_line=-1;
+int     record_end;
+char    record_next;
+int     record_ign;
 
-void record_clear_trailing() {
-    while (!current_cmd.empty()) {
-        char c=current_cmd[current_cmd.sz-1];
-        if  (c==KEY_LEFT || c==KEY_RIGHT)
-            current_cmd.erase(current_cmd.end()-1);
-        else 
-            break;
-    }
-}
+string play_macro;
 
-void record_end() {
-    if (!current_cmd.empty()) {
-        record_cmd = current_cmd;
-        record_pos = current_pos;
-        record_line = current_line;
-    }
-    current_cmd.clear();
-    current_line=text_l;
-    current_pos=compute_pos();
-}
-
+// debug
 void record_display() {
-    text_message = record_cmd;
-    text_message.pb('#');
-    text_message += current_cmd;
-    text_message.pb('#');
-    text_message.pb(EOL);
+    SS yo;
+    yo << record_cmd << '#';
+    yo << record_next << '#';
+    yo << record_end << '#';
+    yo << record_gap << '#';
+    yo << record_line << '#';
+    text_message = yo.str();
 }
 
+// construct record automatically
+// c has been processed already
 void record(char c) 
 {
-    if (c== KEY_LEFT || c==KEY_RIGHT || c==KEY_UP || c==KEY_DOWN ||
-        c== KEY_NPAGE || c==KEY_PPAGE || current_line!= text_l) {
-        // c is the command that made me exit the line...
-        if (!current_cmd.empty() && c!=KEY_TAB) 
-            current_cmd.pb(c);
-        record_end();
+    if (record_ign) {
+        record_ign=0;
+        record_line=text_l;
         return;
     }
-    if (current_cmd.empty() && c==KEY_TAB) 
+    
+    if (record_line != text_l) {
+        record_end=1;
+        record_next=c;
+        record_line=text_l;
         return;
-    current_line=text_l;
-    current_cmd.pb(c);
+    }
+    if (record_end && (c==KEY_LEFT || c==KEY_RIGHT)) return;
+    
+    if (record_end) {
+        record_end=0;
+        record_cmd.clear();
+        record_gap=text_l;
+    }
+
+    record_cmd.pb(c);
 }
 
+void record_ignore() {
+    record_ign=1;
+}
+
+int record_redo() {
+    record_ignore();
+    record_gap=text_l;
+    if (record_end) {
+        play_macro=record_cmd;
+        play_macro+=record_next;
+    } else {
+        play_macro=record_next;
+        play_macro+=record_cmd;
+    }
+}
 
 /* Swap file implementation in case of a crash:
  *
@@ -575,7 +586,6 @@ void text_refresh()
     text_message.clear();
 }
 
-string play_macro;
 int replay=0;
 int pending=0;
 int last_ch=0;
@@ -586,7 +596,7 @@ int text_getchar()
         replay = 0;
         return c;
     }
-    
+
     if (!play_macro.empty()) {
         int c=play_macro[0];
         play_macro.erase(play_macro.begin());
@@ -707,7 +717,7 @@ void del_line() {
                 i--;
             } while (i>=0 && saved_lines[i]!=EOL); 
             SS test;
-            test << text_gap << " " << undo_pos << " " << text_restart << EOL;
+            test << text_gap << " " << undo_pos << " " << text_restart;
             text_message=test.str();
             text_lines++;
             saved_lines.erase(saved_lines.begin()+i+1,saved_lines.end());
@@ -859,13 +869,13 @@ int text_save() {
     for (int i=text_restart; i<text_end; i++) s.put(text[i]);
     s.close();
 
-    text_message="File saved.\n";
+    text_message="File saved.";
     text_saved=1;
 }
 
 int text_exit() {
     if (text_saved) return 1;
-    text_message="The file is not saved. q:quit  s:save and quit\n";
+    text_message="The file is not saved. q:quit  s:save and quit";
     int c=text_getchar();
     if (c=='q'||c=='Q') return 1;
     if (c=='s'||c=='S') {
@@ -1095,11 +1105,11 @@ int text_search(string s)
     int t = search_next(s,text_restart);
     if (t>0)  text_move(t);
     else {
-        text_message = "search restarted on top.\n";
+        text_message = "search restarted on top.";
         t = search_next(s,0);
         if (t>0) text_move(t);
         else {
-            text_message = "word not found.\n";
+            text_message = "word not found.";
             return 0;
         }
     }
@@ -1110,7 +1120,7 @@ void text_command() {
     cmd.clear();
     char c;
     while (1) {
-        text_message='/'+cmd+'\n';
+        text_message='/'+cmd;
         c=text_getchar();
         if (isprint(c)) {
             cmd.pb(c);
@@ -1186,12 +1196,7 @@ void smart_op()
 //    }
 
 //  Redo whole line op
-//  line_goto(record_pos); mieux sans si goto line implicite
-    if (!current_cmd.empty()) {
-        //record_clear_trailing();
-        record_end();
-    }
-    play_macro=record_cmd;
+    record_redo();
 }
 
 // Justify the whole paragraph where
@@ -1245,9 +1250,7 @@ void justify() {
 // if still on the same line and line del : repeat del until
 // current position...
 int smart_repeat() {
-    if (!current_cmd.empty()) 
-        record_end();
-    play_macro=record_cmd;
+    record_redo();
 }
 
 /******************************************************************/
@@ -1298,14 +1301,20 @@ int move(char c) {
     return 1;
 }
 
+// for macro sake :
+// we can extract of this loop CTRL('Q') repeat/save
+// so we can call mainloop again with the macro in place ...
+// not sure though?
 int mainloop() {
+    int b=1;
     int movement=0;
     int saved_mark=-1;
     last_command = CMD_FALLBACK;
     int c='q';
     int temp;
     while (1) {
-//      text_message=" \n";
+        b=1;
+//      text_message=" ";
 //      text_message[0]=c;
         current_command = CMD_FALLBACK;
         c = text_getchar();
@@ -1323,8 +1332,12 @@ int mainloop() {
             } else {
                 switch (c) {
                     case KEY_NULL : screen_cmd();break;
-                    case KEY_GOTO :
-                    case KEY_FIND : record_end();text_command();break;
+                    case KEY_GOTO : text_command();break;
+                    case KEY_FIND : text_command();
+                                    record_cmd.clear();
+                                    record(KEY_NEXT);
+                                    record_ignore();
+                                    break;
                     case KEY_UNDO :
                             if (movement && saved_mark>=0) {
 //                              redo_mark=text_gap;
@@ -1335,9 +1348,13 @@ int mainloop() {
                                 text_undo();
                             }
                             break;
-                    case KEY_SELECT: smart_repeat();break;
-                    case KEY_DISP: record_display();break;
-                    case KEY_WORD: search_id();break;
+                    case KEY_SELECT: smart_repeat();b=0;break;
+                    case KEY_DISP: record_display();record_ignore();break;
+                    case KEY_WORD:  search_id();
+                                    record_cmd.clear();
+                                    record(KEY_NEXT);
+                                    record_ignore();
+                                    break;
 //                  next/prev only for search or context too ??
 //                  pgup/pgdown mess with screen
                     case KEY_NEXT: text_search(cmd);break;
@@ -1345,17 +1362,17 @@ int mainloop() {
                     case KEY_REDO: text_redo();break;
                     case KEY_YLINE: yank_line();text_move(prev_eol());break;
                     case KEY_OLINE: open_line_before();break;
-                    case KEY_DLINE: replay=c;del_line();record_end();break;
+                    case KEY_DLINE: replay=c;del_line();break;
                     case KEY_JUSTIFY: justify();break;
                     case KEY_PRINT: text_print();break;
-                    case KEY_TAB: smart_op();break;
-                    case KEY_QUIT: if (text_exit()) return 0; record_end();break;
-                    case KEY_SAVE: text_save();record_end();break;
+                    case KEY_TAB: smart_op();b=0;break;
+                    case KEY_QUIT: if (text_exit()) return 0; break;
+                    case KEY_SAVE: text_save(); break;
                     case KEY_ENTER: smart_enter();break;
                     case KEY_BACKSPACE: smart_backspace();break;
                     case KEY_DELETE: smart_delete();break;
                 }
-                base_pos=compute_pos();
+                if(b) base_pos=compute_pos();
             }
         
             movement=0;
