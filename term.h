@@ -90,7 +90,7 @@ void term_putchar(int c);
 #define KEY_GOTO        CTRL('G')
 
 #define KEY_OLINE       CTRL('O')
-#define KEY_BACK        CTRL('W') // FREE, macro key?
+#define KEY_BACK        CTRL('L') // FREE open line
 
 #define KEY_LEFT        CTRL('[')
 #define KEY_RIGHT       CTRL(']')
@@ -102,8 +102,8 @@ void term_putchar(int c);
 #define KEY_PREV        CTRL('P')
 
 #define KEY_DLINE       CTRL('X')
-#define KEY_YLINE       CTRL('C')
-#define KEY_PRINT       CTRL('V')
+#define KEY_YLINE       CTRL('C') // move like X
+#define KEY_PRINT       CTRL('V') // print line before
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
@@ -113,8 +113,8 @@ void term_putchar(int c);
 #define KEY_TILL        CTRL('T')
 
 #define KEY_DISP        CTRL('Z')
-#define KEY_JUSTIFY     CTRL('L')
-#define KEY_SELECT      CTRL('A')
+#define KEY_JUSTIFY     CTRL('W')
+#define KEY_SELECT      CTRL('A') // FREE print line after (tab)
 
 /* !! Warning with backup method */
 //#define KEY_ESC         CTRL('[')
