@@ -359,6 +359,10 @@ void screen_compute_wanted()
         i++;
         if (i==text_gap) i=text_restart;
         screen_wanted[n][j]=EOL;
+        while (j+1<screen_columns) {
+            screen_wanted[n][j+1]=' ';
+            j++;
+        }
     }
 
     // message ?
@@ -382,18 +386,70 @@ void screen_highlight()
     uint **yo=screen_wanted;
     fi(screen_lines) {
         int blue=0;
+        int first=1;
         fj(screen_columns) {
             if (j<shift) continue;
             yo[i][j] &= 0xFF;
-            if (yo[i][j]!=EOL)
-            if (isspecial(yo[i][j])) { 
-                    if (j==shift) blue=1;
-                    yo[i][j] |= RED <<8; 
-            } else {
-                if (blue) yo[i][j] |= MAGENTA << 8;
-            }
+            if (yo[i][j]==EOL) break;
+            if (yo[i][j]==' ') continue;
+            
+            char c=yo[i][j];
+            if (first)
+            if (isspecial(c) && c!='{' && c!='}' && c!='[' && c!=']' && c!='(' && c!=')') 
+                blue=1;
+            first=0;    
+            if (blue)
+                yo[i][j] |= MAGENTA <<8; 
         }
     }
+    
+    /* bracket matching */
+    char c = yo[screen_wanted_i][screen_wanted_j];
+    if (c=='{' || c=='[' || c=='(') {
+        char b=c;
+        char e;
+        if (b=='{') e='}';
+        if (b=='[') e=']';
+        if (b=='(') e=')';
+        int count=0;
+        int i=screen_wanted_i;
+        int j=screen_wanted_j;
+        for(;i<screen_lines;i++) {
+            for(;j<screen_columns;j++) {
+                if (yo[i][j]==b) count++;
+                if (yo[i][j]==e) count--;
+                if (count == 0) {
+                    yo[i][j] |= RED <<8;
+                    i=screen_lines;
+                    j=screen_columns;
+                }
+            }
+            j=0;
+        }
+    }
+    if (c=='}' || c==']' || c==')') {
+        char b=c;
+        char e;
+        if (b=='}') e='{';
+        if (b==']') e='[';
+        if (b==')') e='(';
+        int count=0;
+        int i=screen_wanted_i;
+        int j=screen_wanted_j;
+        for(;i>=0;i--) {
+            for(;j>=0;j--) {
+                if (yo[i][j]==b) count++;
+                if (yo[i][j]==e) count--;
+                if (count == 0) {
+                    yo[i][j] |= RED <<8;
+                    i=0;
+                    j=0;
+                }
+            }
+            j=screen_columns-1;
+        }
+    }    
+    
     return;
     fi (screen_lines) {
         line = 0;

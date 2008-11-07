@@ -78,19 +78,19 @@ void term_putchar(int c);
 // Key that the user can acces without ctrl
 #define KEY_PPAGE       CTRL('^')
 #define KEY_NPAGE       CTRL('_')
-#define KEY_DELETE      CTRL('X')
+#define KEY_DELETE      CTRL('D')
 #define KEY_INSERT      CTRL('\\') 
 
 // same here but no room ...
 #define KEY_DOWN        CTRL('J')
 #define KEY_UP          CTRL('K')
 
-#define KEY_WORD        CTRL('W')
+#define KEY_WORD        CTRL('Y')
 #define KEY_FIND        CTRL('F')
 #define KEY_GOTO        CTRL('G')
 
-#define KEY_TILL        CTRL('T')
-#define KEY_BACK        CTRL('L')
+#define KEY_OLINE       CTRL('O')
+#define KEY_BACK        CTRL('W') // FREE, macro key?
 
 #define KEY_LEFT        CTRL('[')
 #define KEY_RIGHT       CTRL(']')
@@ -101,20 +101,19 @@ void term_putchar(int c);
 #define KEY_NEXT        CTRL('N')
 #define KEY_PREV        CTRL('P')
 
-#define KEY_DLINE       CTRL('D')
+#define KEY_DLINE       CTRL('X')
 #define KEY_YLINE       CTRL('C')
-#define KEY_OLINE       CTRL('O')
-
 #define KEY_PRINT       CTRL('V')
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
 
 #define KEY_UNDO        CTRL('U')
-#define KEY_REDO        CTRL('R') // ?? : redo mode w swap ??
+#define KEY_REDO        CTRL('R') 
+#define KEY_TILL        CTRL('T')
 
 #define KEY_DISP        CTRL('Z')
-#define KEY_JUSTIFY     CTRL('Y')
+#define KEY_JUSTIFY     CTRL('L')
 #define KEY_SELECT      CTRL('A')
 
 /* !! Warning with backup method */
