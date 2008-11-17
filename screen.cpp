@@ -287,6 +287,8 @@ void screen_movement_hint()
 // if there is line number
 int shift;
 
+int opt_line=0;
+
 // attention char/uchar ??
 void screen_compute_wanted() 
 {
@@ -299,7 +301,6 @@ void screen_compute_wanted()
         screen_wanted_i = text_l;
 
     // line numbers
-    int opt_line=1;
     if (opt_line) {
             int num = text_lines;
             shift=1;
@@ -308,6 +309,8 @@ void screen_compute_wanted()
                 num/=10;
             }
             shift=max(4,shift);
+    } else {
+        shift=0;
     }
     
     // compute screen_wanted_j
@@ -400,6 +403,7 @@ void screen_highlight()
             first=0;    
             if (blue)
                 yo[i][j] |= MAGENTA <<8; 
+            //else yo[i][j] |= WHITE << 8;
         }
     }
     
@@ -614,4 +618,9 @@ void screen_npage() {
         text_move(text_line_begin(text_l + int(screen_lines)-1));
     }
     screen_redraw(1);
+}
+
+void screen_ol() {
+    if (opt_line) opt_line=0;
+    else opt_line=1;
 }

@@ -102,6 +102,7 @@ void undo_flush()
         b++;
     }
 //  not sure ... 
+//  Weird behavior, copy after del ...
     if (op.del) {
         saved_lines=op.content;
     }
@@ -526,26 +527,37 @@ int text_getchar()
 /*******************************************************************/
 /* implementation of the commands 
  */
-string inserted("");
+ 
+int is_begin() {
+    int i=text_gap;
+    return (i==0 || text[i-1]==EOL);
+}
 
-string last_line_commands;
-// tab on the same line, strip last command group
-// otherwise execute all.
+int is_end() {
+    int i=text_restart;
+    return (i==text_end || text[i]==EOL);
+}
+
+int is_space_before() {
+    int i=text_gap;
+    return (i==0 || text[i-1]==EOL || text[i-1]==' ');
+}
+
+string inserted("");
 
 void yank_line() {
     saved_lines.clear();
-    int i = text_gap;
-    while (i>0 && text[i-1]!=EOL) i--;
-    while (i<text_gap) {
-        saved_lines += text[i];
-        i++;
-    }
-    i=text_restart;
-    while (i<text_end && text[i]!=EOL) {
-        saved_lines += text[i];
-        i++;
-    }
-    saved_lines +=EOL;
+    char c;
+    do {
+        int i=prev_eol();
+        text_move(next_eol()+1);
+        while (i<text_gap) {
+            saved_lines += text[i];
+            i++;
+        }
+        c =text_getchar();
+    } while (c==KEY_YLINE);
+    replay=c;
 }
 
 void del_line() {
@@ -553,48 +565,26 @@ void del_line() {
 
     // move to line begin
     text_move(prev_eol());
-
-    // Clean this,  mecanism not pretty since c==KEY_DLINE
-    while (1) {
-        int c = text_getchar();
-        // delete whole line
-        if (c==KEY_DLINE) {
-            // no more line ??
-            if (text_lines==0) return;
-            
-            // save line 
-            int i=text_restart;
-            do {
-                saved_lines.pb(text[i]);
-                i++;
-            } while (i<text.sz && saved_lines[saved_lines.sz-1]!=EOL);
-            // delete it
-            while (text_restart<text.sz && text[text_restart]!=EOL) {
-                text_delete();
-            }
+    char c;
+    do {
+        // no more line ??
+        if (text_lines==0) return;
+        
+        // save line 
+        int i=text_restart;
+        do {
+            saved_lines.pb(text[i]);
+            i++;
+        } while (i<text.sz && saved_lines[saved_lines.sz-1]!=EOL);
+        // delete it
+        while (text_restart<text.sz && text[text_restart]!=EOL) {
             text_delete();
-            continue;
         }
-        // small redo
-        // Beware directly modify text !!
-        // clean this
-  /*      if ((c==KEY_UNDO || c=='`') && !saved_lines.empty()) {
-            int i=saved_lines.sz-1;
-            do {
-                text[--text_restart]=saved_lines[i];
-                text[--undo_pos]='A';
-                i--;
-            } while (i>=0 && saved_lines[i]!=EOL); 
-            SS test;
-            test << text_gap << " " << undo_pos << " " << text_restart;
-            text_message=test.str();
-            text_lines++;
-            saved_lines.erase(saved_lines.begin()+i+1,saved_lines.end());
-            continue;
-        } */
-        replay = c;
-        break;
-    }
+        text_delete();
+
+        c = text_getchar();
+    } while (c==KEY_DLINE);
+    replay = c;
 }
 
 void text_print() {
@@ -606,31 +596,23 @@ int capitalise(int c) {
     if ((c>='a' && c<='z')) return c-'a'+'A';
 }
 
-// return 1 and insert an indent if
-// begin of line or whitespace before
-// Or jump to current indent if in the middle of whites
-int smart_space() {
+void insert_indent() {
     int i=text_gap;
     int pos=0;
-    if (i==0 || text[i-1]==EOL || text[i-1]==' ') {
-        while (i>0 && text[i-1] != EOL) {
-            i--;
-            pos++;
-        }
-        i = text_restart;
-        while (i<text_end && text[i]==' ') {
-            i++;
-            pos++;
-        }
-        if (text_restart!=i)
-            text_move(i);
-        else do {
-            text_putchar(' ');
-            pos++;
-        } while (pos % TABSTOP != 0);
-        return 1;
-    } 
-    return 0;
+    while (i>0 && text[i-1] != EOL) {
+        i--;
+        pos++;
+    }
+    i = text_restart;
+    while (i<text_end && text[i]==' ') {
+        i++;
+        pos++;
+    }
+    text_move(i);
+    do {
+        text_putchar(' ');
+        pos++;
+    } while (pos % TABSTOP != 0);
 }
 
 void smart_backspace() {
@@ -682,11 +664,21 @@ void smart_delete() {
 void smart_enter() {
     int i=prev_eol();
     int pos=0;
-    while (i<text_gap && text[i]==' ') {
-        i++;
-        pos++;
-    }
-    text_putchar(EOL);
+//    if (text_gap==i) {
+//        i=text_restart;
+//        while (i<text_end && text[i]==' ') {
+//            i++;
+//            pos++;
+//        }
+//        text_putchar(EOL);
+//        text_move(text_gap-1);
+//    } else { 
+        while (i<text_gap && text[i]==' ') {
+            i++;
+            pos++;
+        }
+        text_putchar(EOL);
+//    }
     fj(pos) text_putchar(' ');
 }
 
@@ -794,19 +786,19 @@ string text_complete()
     string end;
     
     int white=0;
-    if (i>=0 && !isletter(text[i])) white=1;
+//    if (i>=0 && !isletter(text[i])) white=1;
 
 //  if previous white, do intelligent stuff
-    while (i>=0 && !isletter(text[i]) && text[i]!=EOL) {
-        begin = text[i] + begin;
-        i--;
-    }
+//    while (i>=0 && !isletter(text[i]) && text[i]!=EOL) {
+//        begin = text[i] + begin;
+//        i--;
+//    }
     while (i>=0 && isletter(text[i])) {
         begin = text[i] + begin;
         i--;
     }
     
-    if (i>=0 && text[i]==EOL) begin = EOL+begin;
+//  if (i>=0 && text[i]==EOL) begin = EOL+begin;
     int pos=i;
     if (i<0) pos=i+1;
 
@@ -857,7 +849,8 @@ int insert() {
             }
         }
         if (isprint(c)) {
-            if (c==' ' && smart_space()) {
+            if (c==' ' && is_space_before()) {
+                insert_indent();
                 inserted.pb(EOL);
                 break;
             }
@@ -1145,17 +1138,20 @@ int macro_loop() {
     while (1) {
         i++;
         char c = text_getchar();
-        if (isprint(c) || c==KEY_INSERT) 
-            if (c!=' ' || !smart_space()) {
+        if (isprint(c) || c==KEY_INSERT) {
+            if (c==' ' && is_space_before()) {
+                insert_indent();
+            } else {
                 replay=c;
                 insert();
-                continue;
             }
-        if (c==KEY_BACKSPACE && text_gap>0 && text[text_gap-1]!=EOL) {
+            continue;
+        }
+        if (c==KEY_BACKSPACE && !is_begin()) {
                 smart_backspace();
                 continue;
         }
-        if (c==KEY_DELETE && text_restart<text_end && text[text_restart]!=EOL) {
+        if (c==KEY_DELETE && !is_end()) {
                 smart_delete();
                 continue;
         }
@@ -1168,22 +1164,48 @@ int macro_loop() {
         macro_data=record_data;
     }
     if (i>1) {
-        macro_line=text_l;
+        macro_line=text_gap;
         return 1;
     }
     return 0;
 }
 
+void macro_change_line() {
+    switch (macro_next) {
+        case KEY_UP: text_up();break;
+        case KEY_DOWN: text_down();break;
+        case KEY_NEXT: text_search(cmd);macro_next=KEY_NEXT;break;
+        case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
+    }
+}
+
+
 int macro_exec() {
-    if (text_l == macro_line) {
+    if (text_gap == macro_line) {
         play_macro = macro_next;
         play_macro+= macro_data;
-        play_macro+= KEY_SELECT; // un truc qui fait rien
+        play_macro+= KEY_A; // un truc qui fait rien
     } else {
         play_macro  = macro_data;
         play_macro += macro_next;
     }
-    macro_loop();
+    macro_loop();    
+}
+
+void macro_till() {
+    string yop = macro_data;
+    int limit=text_l;
+    text_absolute_move(macro_line);
+    if (text_l==limit) return;
+    if (text_l>limit) macro_next=KEY_UP;
+    else macro_next=KEY_DOWN;
+    do {
+        macro_change_line();        
+        play_macro = yop;
+        play_macro += KEY_A;
+        macro_loop();
+        text_getchar();
+    } while (text_l!=limit);
 }
 
 // REMOVED:
@@ -1207,27 +1229,32 @@ int mainloop() {
             case KEY_RIGHT: text_move(text_restart+1);break;
             case KEY_UP: text_up();b=0;break;
             case KEY_DOWN: text_down();b=0;break;
+            case KEY_NEXT: text_search(cmd);macro_next=KEY_NEXT;break;
+            case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
             case KEY_PPAGE: text_ppage();b=0;break;
             case KEY_NPAGE: text_npage();b=0;break;
             case KEY_GOTO: text_command(">");text_jump(cmd);break;
             case KEY_FIND: text_command("/");text_search(cmd);macro_next=KEY_NEXT;break;
             case KEY_WORD: search_id();macro_next=KEY_NEXT;break;
             case KEY_UNDO: text_undo();break;
-            case KEY_SELECT: break;
-            case KEY_DISP: macro_display();break;
-            case KEY_NEXT: text_search(cmd);macro_next=KEY_NEXT;break;
-            case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
-            case KEY_TILL: macro_exec();b=0;break;
+            case KEY_DISP: macro_display();screen_ol();break;
+            case KEY_TILL: macro_till();b=0;break;
             case KEY_REDO: 
                 if (!text_redo()) {
                     macro_exec();b=0;
                 }
                 break;
-            case KEY_YLINE: yank_line();text_move(prev_eol());small=KEY_PRINT;break;
-            case KEY_DLINE: replay=c;del_line();small=KEY_PRINT;break;
+            case KEY_YLINE: yank_line();small=KEY_PRINT;break;
+            case KEY_DLINE: del_line();small=KEY_PRINT;break;
             case KEY_OLINE: open_line_before();small=' ';break;
             case KEY_JUSTIFY: justify();break;
-            case KEY_PRINT: text_print();break;
+            case KEY_PRINT: 
+//                            text_move(next_eol()+1);
+                            text_print();
+//                            text_move(text_gap-1);
+                            break;
+            case KEY_L: text_move(next_eol()+1);text_print();break;
+            case KEY_A: break;
             case KEY_TAB: replay=small;break;
             case KEY_SAVE: text_save();break;
             case KEY_ENTER: smart_enter();small=' ';break;
@@ -1236,10 +1263,6 @@ int mainloop() {
         }
         if (b) base_pos=compute_pos();
     }
-}
-
-// TODO
-int macro_till() {
 }
 
 int main(int argc, char **argv) 

@@ -90,7 +90,7 @@ void term_putchar(int c);
 #define KEY_GOTO        CTRL('G')
 
 #define KEY_OLINE       CTRL('O')
-#define KEY_BACK        CTRL('L') // FREE open line
+#define KEY_L           CTRL('L') 
 
 #define KEY_LEFT        CTRL('[')
 #define KEY_RIGHT       CTRL(']')
@@ -102,8 +102,8 @@ void term_putchar(int c);
 #define KEY_PREV        CTRL('P')
 
 #define KEY_DLINE       CTRL('X')
-#define KEY_YLINE       CTRL('C') // move like X
-#define KEY_PRINT       CTRL('V') // print line before
+#define KEY_YLINE       CTRL('C') 
+#define KEY_PRINT       CTRL('V') 
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
@@ -114,89 +114,4 @@ void term_putchar(int c);
 
 #define KEY_DISP        CTRL('Z')
 #define KEY_JUSTIFY     CTRL('W')
-#define KEY_SELECT      CTRL('A') // FREE print line after (tab)
-
-/* !! Warning with backup method */
-//#define KEY_ESC         CTRL('[')
-//#define KEY_TAB           CTRL('I')
-//#define KEY_ENTER       CTRL('M')
-//#define KEY_INSERT      CTRL('R')
-//#define KEY_BACKSPACE   CTRL('H')
-//#define KEY_DELETE        'X'
-
-//#define KEY_BEGIN     'B'
-//#define KEY_END           'E'
-
-//#define KEY_OLINE     'O'
-/*open line before*/
-//#define KEY_DLINE     'D'
-//#define KEY_PLINE     'P'
-/* print line/bloc after
- * Go at end of block,
- * esc cancel, bacspace/tab chg indent?
- */
-
-//#define KEY_YLINE       'Y'
-//#define KEY_MLINE       'M'
-
-//#define KEY_RLINE     'R'
-/* 
- * Esc To cancel an editig and restore previous line.
- *
- * some idea on repeat :
- * Once we enter a line, command on it are [L/R moves] + [rest].
- * [L/R moves] are ignored, the rest is saved when we leave the line.
- * only [L/R moves] don't erase the saved operation.
- * repeat perform the [rest] on the current line.
- */
-
-/* Issue with block and multiple repeat a la delete
- * Current idea:
- * If one of the R/D/M line command is directly preceded by a Mark command,
- * apply it on the block. (ignore move)
- *
- * We loose MMM to mark 3 lines though.
- * And problem with unwanted yanking I guess (because Mark yank as well).
- * Current sol:2 commands.
- */
-
-//#define KEY_JUMP      'G'
-/*can be used as a numerical flag too ?*/
-
-//#define KEY_QUIT      'Q'
-//#define KEY_SAVE      'S'
-//#define KEY_CHANGE        'C'
-/* change name of file / open new file, existing file */
-
-//#define KEY_UP            'I'
-//#define KEY_DOWN      'K'
-//#define KEY_LEFT      'J'
-//#define KEY_RIGHT     'L'
-
-//#define KEY_REPLACE       'H'
-/* ask if want to work on selected block if M before */
-//#define KEY_SEARCH        'F'
-//#define KEY_UNDOMODE  'Z'
-/* Weird undo but simple to implement and most useful than many.
- * navigate between saved session,
- * detail of one, navigate between change,
- * done.
- * In all operation you can scroll.
- *
- * In bacup file, print the position used to resume ...
- * Suspend backup in this mode.
- */
-
-/* Esc to end search session and retreive pup/pdown
- * Esc to go back at the beginning of a scroll*/
-//#define KEY_PPAGE       'U'
-//#define KEY_NPAGE       'N'
-
-/* inline operation, 
- * We can use the same mark I guess */
-//#define KEY_APPEND        'A'
-//#define KEY_FIND      'T'
-//#define KEY_FINDBACK  'W'
-//#define KEY_CHAR      'V'
-
-
+#define KEY_A           CTRL('A') 
