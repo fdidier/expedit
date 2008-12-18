@@ -11,11 +11,13 @@ uint     screen_columns;
 
 /* screen currently displayed */
 uint     **screen_real;
+uint     **color_real;
 uint     screen_real_i;      /* cursor line in screen */
 uint     screen_real_j;      /* cursor pos  in screen */
 
 /* screen we want to display */
 uint     **screen_wanted;
+uint     **color_wanted;
 uint     screen_wanted_i;
 uint     screen_wanted_j;
 
@@ -37,6 +39,7 @@ uint     **screen_alloc_internal(int i, int j)
         
         for (k=0; k<i; k++) {
                 array[k]= &temp[k*j];
+                for (int l=0; l<j; l++) array[k][l]=0;
         }
                 
         return array;
@@ -48,14 +51,24 @@ void    screen_alloc()
                 free(screen_wanted[0]);
                 free(screen_wanted);
         }
+        if (color_wanted) {
+                free(color_wanted[0]);
+                free(color_wanted);
+        }
 
         if (screen_real) {
                 free(screen_real[0]);
                 free(screen_real);
         }
+        if (color_real) {
+                free(color_real[0]);
+                free(color_real);
+        }
 
-        screen_wanted = screen_alloc_internal(screen_lines, 2*screen_columns+1);
-        screen_real   = screen_alloc_internal(screen_lines, 2*screen_columns+1);
+        screen_wanted = screen_alloc_internal(screen_lines, screen_columns+1);
+        color_wanted = screen_alloc_internal(screen_lines, screen_columns+1);
+        screen_real = screen_alloc_internal(screen_lines, screen_columns+1);
+        color_real = screen_alloc_internal(screen_lines, screen_columns+1);
 }
 
 /************************************************************************/
@@ -101,15 +114,13 @@ void screen_newl()
 }
 
 /* Print a char */
-void screen_print(uint c) 
+void screen_print(int c, int color=0) 
 {
-    term_putchar(c);
-    if (isok(c & 0xFF)) {
-        if (screen_real_j == screen_columns+1) {
-            screen_real_j = 0;
-            screen_real_i ++;
-        }
-        screen_real_j++;
+    term_putchar(c, color);
+    screen_real_j++;
+    if (screen_real_j == screen_columns+1) {
+        screen_real_j = 0;
+        screen_real_i ++;
     }
 }
 
@@ -129,7 +140,7 @@ void screen_dump_wanted(int a, int b)
                                 break;
                         }
 
-                        screen_print(w);
+                        screen_print(w,color_wanted[i][j]);
                         j++;
                 }
         }
@@ -139,9 +150,6 @@ void screen_dump_wanted(int a, int b)
 void screen_make_it_real() 
 {
         uint i;
-        uint poss;  // pos on screen
-        uint posw;  // pos on wanted buffer
-        uint posr;  // pos on real buffer
         uint w,r;
 
         /* Use the scroll hint */
@@ -174,17 +182,14 @@ void screen_make_it_real()
         }
 
         for (i=a; i<screen_lines; i++) {
-                poss=0;
-                posw=0;
-                posr=0;
                 r=0;
-                while (1) {
-                        w = screen_wanted[i-off][posw]; 
-                        if (r != '\n') r = screen_real[i-b][posr];
+                fj (screen_columns) {
+                        w = screen_wanted[i-off][j]; 
+                        if (r != '\n') r = screen_real[i-b][j];
 
                         if (w == '\n') {
                                 if (r != '\n') {
-                                        screen_move_curs(i,poss);
+                                        screen_move_curs(i,j);
                                         CLEAR_EOL;
                                         if (i != (screen_lines - 1)) 
                                             screen_newl();
@@ -192,35 +197,10 @@ void screen_make_it_real()
                                 break;
                         }
 
-                        /* utf8 case !! */
-                        if (w>=128) {
-                            int diff=0;
-                            int t=1;
-                            if (w != r) diff=1;
-                            while (!isok( screen_wanted[i-off][posw+t] & 0xFF)) {
-                                if (!diff)
-                                if (screen_wanted[i-off][posw+t] != screen_real[i-b][posr+t]) 
-                                    diff = 1;
-                                t++;
-                            }
-                            if (diff) {
-                                screen_move_curs(i,poss);
-                                fk(t) screen_print(screen_wanted[i-off][posw+k]);
-                            }
-                        } 
-                        else if (w != r) {
-                                screen_move_curs(i,poss);
-                                screen_print(w);
-                                if (screen_real_j == screen_columns+1) {
-                                        poss=0;
-                                }
+                        if (w != r || color_wanted[i-off][j] != color_real[i-b][j]) {
+                            screen_move_curs(i,j);
+                            screen_print(w,color_wanted[i-off][j]);
                         }
-
-                        poss++;
-                        posw++; 
-                        while (!isok(screen_wanted[i-off][posw] & 0xFF)) posw++;
-                        posr++; 
-                        while (!isok(screen_real[i-b][posr] & 0xFF)) posr++;
                 }
         }
 
@@ -232,7 +212,7 @@ void screen_make_it_real()
         }
 }
 
-/* Function to call when the real screen is equal to the wanted one */
+// Function to call when the real screen is equal to the wanted one 
 void screen_done() 
 {
 // put the cursor as wanted 
@@ -243,6 +223,11 @@ void screen_done()
     uint **temp = screen_real;
     screen_real = screen_wanted;
     screen_wanted = temp;
+    
+// swap the two color arrays
+    temp = color_real;
+    color_real = color_wanted;
+    color_wanted = temp;
 
 // make the change 
     fflush(stdout);
@@ -289,13 +274,8 @@ int shift;
 
 int opt_line=0;
 
-// attention char/uchar ??
 void screen_compute_wanted() 
 {
-//    fn (screen_lines) {
-//        screen_wanted[n][screen_columns]=EOL;
-//    }
-
     // not enough line ?
     if (screen_wanted_i > text_l) 
         screen_wanted_i = text_l;
@@ -317,10 +297,10 @@ void screen_compute_wanted()
     int i = text_gap;
     int l = 0;
     while (i>0 && text[i-1]!=EOL) { 
-        if (isok((uchar) text[i-1])) l++;   
+        l++;   
         i--;
     }
-    screen_wanted_j = shift + (l % ( screen_columns-shift));
+    screen_wanted_j = shift + min(l, int(screen_columns-shift-1));
 
     // find the beginning of the first line.
     fn (screen_wanted_i) {
@@ -334,28 +314,33 @@ void screen_compute_wanted()
     // fill the line one by one
     fn (screen_lines) {
         int j=0;
-        int s=0;
-        int num=text_l-screen_wanted_i+n +1;
+        int num = text_l - screen_wanted_i + n +1;
         if (num > text_lines) num=0;
         while (j<shift) {
             if (num==0 || j==0) {
                 screen_wanted[n][shift-1-j]= ' ';
             } else {
-                screen_wanted[n][shift-1-j]= ((num%10) +'0') | (YELLOW <<8);
+                screen_wanted[n][shift-1-j]= (num%10) +'0';
+                color_wanted[n][shift-1-j]=YELLOW;
                 num/=10;
             }
             j++;
-            s++;
         }
         while (i<text_end && text[i]!=EOL) {
-            int temp=s;
-            if (n==screen_wanted_i) 
-                temp= s - (l - screen_wanted_j + shift);
-            if (temp>=shift && temp<screen_columns) {
-                screen_wanted[n][j] = text[i];
-                j++;
+            if (n==screen_wanted_i) {
+                int pos = i - text_gap;
+                if (pos>0) pos = i - text_restart;
+                pos += screen_wanted_j;
+                if (pos>=shift && pos+shift <screen_columns) {
+                   screen_wanted[n][j] = text[i];
+                   j++;
+                }
+            } else {
+                if (j<screen_columns) {
+                    screen_wanted[n][j] = text[i];
+                    j++;
+                }
             }
-            if (isok(text[i])) s++;
             i++;
             if (i==text_gap) i=text_restart;
         };
@@ -392,7 +377,7 @@ void screen_highlight()
         int first=1;
         fj(screen_columns) {
             if (j<shift) continue;
-            yo[i][j] &= 0xFF;
+            color_wanted[i][j]=0;
             if (yo[i][j]==EOL) break;
             if (yo[i][j]==' ') continue;
             
@@ -402,13 +387,22 @@ void screen_highlight()
                 blue=1;
             first=0;    
             if (blue)
-                yo[i][j] |= MAGENTA <<8; 
-            //else yo[i][j] |= WHITE << 8;
+                color_wanted[i][j] = MAGENTA; 
         }
     }
     
     /* bracket matching */
-    char c = yo[screen_wanted_i][screen_wanted_j];
+    int c;
+    int temp=screen_wanted_j;
+    do {
+        c = yo[screen_wanted_i][temp];
+        if (c=='(' || c==')' || c=='{' || c=='}' || c=='[' || c==']') break;
+        temp--;
+    } while (temp>=0);
+    if (temp<0) return;
+    if (temp!=screen_wanted_j)
+        color_wanted[screen_wanted_i][temp]=RED;
+    
     if (c=='{' || c=='[' || c=='(') {
         char b=c;
         char e;
@@ -417,13 +411,13 @@ void screen_highlight()
         if (b=='(') e=')';
         int count=0;
         int i=screen_wanted_i;
-        int j=screen_wanted_j;
+        int j=temp;
         for(;i<screen_lines;i++) {
             for(;j<screen_columns;j++) {
                 if (yo[i][j]==b) count++;
                 if (yo[i][j]==e) count--;
                 if (count == 0) {
-                    yo[i][j] |= RED <<8;
+                    color_wanted[i][j] = RED;
                     i=screen_lines;
                     j=screen_columns;
                 }
@@ -439,15 +433,15 @@ void screen_highlight()
         if (b==')') e='(';
         int count=0;
         int i=screen_wanted_i;
-        int j=screen_wanted_j;
+        int j=temp;
         for(;i>=0;i--) {
             for(;j>=0;j--) {
                 if (yo[i][j]==b) count++;
                 if (yo[i][j]==e) count--;
                 if (count == 0) {
-                    yo[i][j] |= RED <<8;
-                    i=0;
-                    j=0;
+                    color_wanted[i][j] = RED;
+                    i=-1;
+                    j=-1;
                 }
             }
             j=screen_columns-1;
@@ -455,6 +449,7 @@ void screen_highlight()
     }    
     
     return;
+    
     fi (screen_lines) {
         line = 0;
         for (int j=shift; j<screen_columns; j++) {

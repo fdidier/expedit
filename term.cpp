@@ -26,7 +26,7 @@ void term_get_size(uint &x, uint &y)
 
         x = ws.ws_row;
         y = ws.ws_col;
-        y--;
+//        y--;
 }
 
 void reset_input_mode (void)
@@ -218,9 +218,9 @@ uchar escape_sequence()
 
 /****************************************************************/
 
-uchar term_getchar()
+char term_getchar_internal()
 {
-        char c;
+        uchar c;
 
         if (stored_char) {
                 stored_char = 0;
@@ -235,7 +235,26 @@ uchar term_getchar()
                 return c;
 }
 
-uchar term_rawchar() {
+int term_getchar() {
+    int ch;
+    uchar c;
+    c = term_getchar_internal();
+    ch = c;
+    if ((c >> 7)&1) {
+        /* compute utf8 encoding length */
+        int l=0;
+        while ((c >> (6-l))&1) l++;
+        
+        /* compute corresponding int */
+        fi (l) {
+            c = term_getchar_internal();
+            ch ^= c << (8*(i+1));
+        }
+    }
+    return ch;
+}
+
+int term_rawchar() {
     char c;
     read (STDIN_FILENO, &c, 1);
     return c;
@@ -264,32 +283,23 @@ int video_reverse = 0;
 int fg_color      = BLACK;
 int bg_color      = WHITE;
 
-
-void term_putchar(int c)
+void term_putchar(int c, int color)
 {
-    /* split char and color info */
-    uchar t = c & 0xFF;
-    int color = (c>>8) & 0xF;
-
     /* deal with control caracter 
      * display a red capital letter instead
      */
-    if (t<32) {
-        t += 64;
+    if (c<32) {
+        c += 64;
         color = RED;
     }
 
-    if (!isok(t)) {
-          putchar(t);
-          return;
-    }
-
-    /* set color if necessary */
     if (fg_color != color) {
         SET_FG_COLOR(color);
         fg_color = color;
     }
 
-    /* print the char */
-    putchar(t);
+    do {
+        putchar(c & 0xFF);
+        c = c >> 8;
+    } while(c);
 }

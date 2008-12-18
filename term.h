@@ -8,7 +8,7 @@ void term_get_size(unsigned int &x, unsigned int &y);
 void term_init();
 void term_reset();
 void term_pushback(uchar c);
-void term_putchar(int c);
+void term_putchar(int c, int color=0);
 
 /* STYLE STUFF */
 
@@ -76,10 +76,19 @@ void term_putchar(int c);
 #define KEY_ENTER       CTRL('M')
 
 // Key that the user can acces without ctrl
-#define KEY_PPAGE       CTRL('^')
-#define KEY_NPAGE       CTRL('_')
+#define KEY_PPAGE       CTRL('^')   // to screen
+#define KEY_NPAGE       CTRL('_')   // to screen
 #define KEY_DELETE      CTRL('D')
 #define KEY_INSERT      CTRL('\\') 
+
+// Still needed
+// KEY_SELECT + termine avec ctrl C/ctrl X/ Ctrl V?
+// KEY_MACRO : start/end more complex sequence than the automatic ones
+// KEY to exec macro? or redo/till ??
+// paste mode....
+//
+// GOTO mode ??
+// ijkl, b/e, number[:pos in line] + enter
 
 // same here but no room ...
 #define KEY_DOWN        CTRL('J')
@@ -92,12 +101,13 @@ void term_putchar(int c);
 #define KEY_OLINE       CTRL('O')
 #define KEY_L           CTRL('L') 
 
-#define KEY_LEFT        CTRL('[')
+#define KEY_LEFT        CTRL('L')
 #define KEY_RIGHT       CTRL(']')
 
 #define KEY_END         CTRL('E')
 #define KEY_BEGIN       CTRL('B')
 
+// can be used for line if research empty...
 #define KEY_NEXT        CTRL('N')
 #define KEY_PREV        CTRL('P')
 
@@ -112,6 +122,6 @@ void term_putchar(int c);
 #define KEY_REDO        CTRL('R') 
 #define KEY_TILL        CTRL('T')
 
-#define KEY_DISP        CTRL('Z')
+#define KEY_DISP        CTRL('Z')  // to screen
 #define KEY_JUSTIFY     CTRL('W')
 #define KEY_A           CTRL('A') 

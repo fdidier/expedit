@@ -44,33 +44,31 @@ typedef vector<string>  VS;
 #define TABSTOP    4
 
 /* function declaration */
-extern vector<char>   text;
-extern int     text_lines;
-extern int     text_l;
-extern int     text_gap;
-extern int     undo_pos;
-extern int     text_restart;
-extern int     text_end;    
-extern void    text_move(int);
-extern int     text_line_begin(int);
+extern vector<int>   text;
+extern int      text_lines;
+extern int      text_l;
+extern int      text_gap;
+extern int      undo_pos;
+extern int      text_restart;
+extern int      text_end;    
+extern void     text_move(int);
+extern int      text_line_begin(int);
+    
+extern string   text_highlight;
+extern string   text_message;
 
-extern string  text_highlight;
-extern string  text_message;
+extern void     screen_save();
+extern void     screen_restore();
+extern void     screen_npage();
+extern void     screen_ppage();
 
-extern void    screen_save();
-extern void    screen_restore();
-extern void    screen_npage();
-extern void    screen_ppage();
-//extern void    screen_lineup();
-//extern void    screen_linedown();
-
-extern void    screen_init();
-extern void    screen_redraw(int hint=-1);
-extern void    screen_refresh();
-extern uint    screen_lsize;
-extern void    screen_ol(); 
+extern void     screen_init();
+extern void     screen_redraw(int hint=-1);
+extern void     screen_refresh();
+extern uint     screen_lsize;
+extern void     screen_ol(); 
    
-extern uchar   term_rawchar();
-extern uchar   term_getchar();
-extern void    term_set_title(uchar *);
-extern void    reset_input_mode();
+extern int      term_rawchar();
+extern int      term_getchar();
+extern void     term_set_title(uchar *);
+extern void     reset_input_mode();
