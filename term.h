@@ -63,23 +63,27 @@ void term_putchar(int c, int color=0);
 #define SET_BG_COLOR(a) printf("\e[4%im",a);
 #define SET_FG_COLOR(a) printf("\e[3%im",a);
 
-/* Key translation */
+// Command definition
 
+// Control macro
 #define CTRL(c)         ((c) & 0x1F)
 
-#define KEY_NULL        CTRL('@')
-
-// Key we can't change :( 
+// Keys we can't change :( 
 #define KEY_ESC         CTRL('[')
 #define KEY_TAB         CTRL('I')
 #define KEY_BACKSPACE   CTRL('H')
 #define KEY_ENTER       CTRL('M')
 
-// Key that the user can acces without ctrl
+// Keys that the user can acces without ctrl
 #define KEY_PPAGE       CTRL('^')   // to screen
 #define KEY_NPAGE       CTRL('_')   // to screen
 #define KEY_DELETE      CTRL('D')
-#define KEY_INSERT      CTRL('\\') 
+#define KEY_INSERT      CTRL('@') 
+#define KEY_NULL        CTRL('@')
+
+// unused Key yet
+#define KEY_SELECT      CTRL(']')
+#define KEY_MACRO       CTRL('\\')
 
 // Still needed
 // KEY_SELECT + termine avec ctrl C/ctrl X/ Ctrl V?
@@ -94,23 +98,20 @@ void term_putchar(int c, int color=0);
 #define KEY_DOWN        CTRL('J')
 #define KEY_UP          CTRL('K')
 
-#define KEY_WORD        CTRL('Y')
+#define KEY_WORD        CTRL('W')
 #define KEY_FIND        CTRL('F')
 #define KEY_GOTO        CTRL('G')
 
-#define KEY_OLINE       CTRL('O')
-#define KEY_L           CTRL('L') 
+#define KEY_NEXT        CTRL('N')
+#define KEY_PREV        CTRL('P')
 
-#define KEY_LEFT        CTRL('L')
-#define KEY_RIGHT       CTRL(']')
+#define KEY_LEFT        CTRL('A')
+#define KEY_RIGHT       CTRL('L')
 
 #define KEY_END         CTRL('E')
 #define KEY_BEGIN       CTRL('B')
 
-// can be used for line if research empty...
-#define KEY_NEXT        CTRL('N')
-#define KEY_PREV        CTRL('P')
-
+#define KEY_OLINE       CTRL('O')
 #define KEY_DLINE       CTRL('X')
 #define KEY_YLINE       CTRL('C') 
 #define KEY_PRINT       CTRL('V') 
@@ -123,5 +124,13 @@ void term_putchar(int c, int color=0);
 #define KEY_TILL        CTRL('T')
 
 #define KEY_DISP        CTRL('Z')  // to screen
-#define KEY_JUSTIFY     CTRL('W')
-#define KEY_A           CTRL('A') 
+#define KEY_JUSTIFY     CTRL('Y')
+
+
+// special commands
+// first byte is null
+
+#define WHEEL_UP        (1 << 8)
+#define WHEEL_DOWN      (2 << 8)
+#define MOUSE_1         (3 << 8)
+#define MOUSE_2         (4 << 8)

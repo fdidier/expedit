@@ -67,7 +67,8 @@ extern void     screen_redraw(int hint=-1);
 extern void     screen_refresh();
 extern uint     screen_lsize;
 extern void     screen_ol(); 
-   
+extern int      screen_getchar();
+ 
 extern int      term_rawchar();
 extern int      term_getchar();
 extern void     term_set_title(uchar *);

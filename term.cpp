@@ -84,7 +84,7 @@ void term_init()
 int  stored_char = 0;
 char input_char;
 
-uchar shift_escape_sequence() {
+int shift_escape_sequence() {
     uchar c;
     if (read(STDIN_FILENO, &c, 1) && c== ';') 
     if (read(STDIN_FILENO, &c, 1) && c== '2') 
@@ -101,9 +101,9 @@ uchar shift_escape_sequence() {
     return KEY_ESC;
 }
 
-uchar tilde_escape_sequence(char c)
+int  tilde_escape_sequence(char c)
 {
-        uchar a;
+        int a;
 
         switch (c) {
                 case '2':
@@ -138,25 +138,25 @@ uchar tilde_escape_sequence(char c)
         return KEY_ESC;
 }
 
-uchar mouse_sequence() {
+int mouse_sequence() {
     uchar button,x,y;
     if (!read(STDIN_FILENO, &button, 1)) return KEY_ESC;
     if (!read(STDIN_FILENO, &x, 1)) return KEY_ESC;
     if (!read(STDIN_FILENO, &y, 1)) return KEY_ESC;
-    if (button=='`') return KEY_PPAGE; // wheel up
-    if (button=='a') return KEY_NPAGE; // wheel down
+    if (button=='`') return WHEEL_UP; // wheel up
+    if (button=='a') return WHEEL_DOWN; // wheel down
     if (button=='!') { // mid
         GETSEL;
-        return 'a';
+        return MOUSE_1;
     } else if (button=='\"') {
         SETSEL("fred");
-        return 'a';
+        return MOUSE_2;
     }
 
     return KEY_ESC;
 }
 
-uchar escape_sequence()
+int escape_sequence()
 {
         struct termios tattr;
         tcgetattr (STDIN_FILENO, &tattr);
@@ -166,7 +166,7 @@ uchar escape_sequence()
         tattr.c_cc[VMIN]  = 0;
         tcsetattr (STDIN_FILENO, TCSANOW, &tattr);
 
-        uchar a = KEY_ESC;
+        int a = KEY_ESC;
         uchar c;
 
         if (read (STDIN_FILENO, &c, 1)) {
@@ -218,7 +218,7 @@ uchar escape_sequence()
 
 /****************************************************************/
 
-char term_getchar_internal()
+int term_getchar_internal()
 {
         uchar c;
 
@@ -235,11 +235,11 @@ char term_getchar_internal()
                 return c;
 }
 
-int term_getchar() {
-    int ch;
-    uchar c;
-    c = term_getchar_internal();
-    ch = c;
+int term_getchar() 
+{
+    int ch= term_getchar_internal();
+    uchar c = ch & 0xFF;
+    
     if ((c >> 7)&1) {
         /* compute utf8 encoding length */
         int l=0;
@@ -247,7 +247,7 @@ int term_getchar() {
         
         /* compute corresponding int */
         fi (l) {
-            c = term_getchar_internal();
+            c = term_getchar_internal() & 0xFF;
             ch ^= c << (8*(i+1));
         }
     }

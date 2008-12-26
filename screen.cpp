@@ -560,20 +560,17 @@ void screen_init()
 }
 
 void screen_redraw(int hint) 
-{
-        term_reset();
-
-        screen_clear();
-        
+{    
         screen_movement_hint();
-        if (hint ==-1) {
-            screen_wanted_i=screen_lines/2;
-        } else if (hint>0 && hint<screen_lines-1) {
-            screen_wanted_i=hint;
-        }
+        if (hint>=0 && hint<=screen_lines-1) {
+            screen_wanted_i = hint;
+        };
         
         screen_compute_wanted(); 
         screen_highlight(); 
+
+        term_reset();
+        screen_clear();
         screen_dump_wanted(0,screen_lines);
         screen_done();
 }
@@ -618,4 +615,32 @@ void screen_npage() {
 void screen_ol() {
     if (opt_line) opt_line=0;
     else opt_line=1;
+}
+
+vector<int> buffer;
+int screen_getchar() {
+    int c;
+    if (!buffer.empty()) {
+        c = buffer[buffer.sz-1];
+        buffer.erase(buffer.end()-1);
+        return c;
+    }
+    while (1) {
+        c = term_getchar();
+        if (c==KEY_DISP) {
+            screen_ol();
+            screen_redraw();
+        } else if (c==WHEEL_UP) {
+            fi(4) buffer.pb(KEY_UP);
+            c = KEY_UP;
+            break;
+        } else if (c==WHEEL_DOWN) {
+            fi(4) buffer.pb(KEY_DOWN);
+            c = KEY_DOWN;
+            break;
+        } else {
+            break;
+        }
+    }
+    return c;
 }

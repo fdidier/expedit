@@ -485,7 +485,7 @@ int text_getchar()
     }
 
     /* read the next input char */
-    int res = term_getchar();
+    int res = screen_getchar();
 
     // to group operation in the undo struct corresponding to
     // only one keystroke and remember the position that started it all
@@ -494,8 +494,13 @@ int text_getchar()
     // record char ?
     if (record) record_data.pb(res);
 
-    swap_stream.put(res);
-    swap_index++;
+    int temp = (uint) res;
+    do {
+        swap_stream.put( temp & 0xFF);
+        swap_index++;
+        temp >>= 8;
+    } while (temp);
+        
     return res;
 }
 
@@ -833,6 +838,7 @@ int insert() {
     inserted.clear();
     while (1) {
         int c = text_getchar();
+        if (c==KEY_NULL) break;
         if (c==KEY_INSERT) {
             int c=text_getchar();
             if (c!=EOL) {
@@ -922,23 +928,6 @@ int search_next(string c, int i, int limit=text_end)
         i++;
     }
     return -1;
-}
-
-int text_jump(string s) {
-    int num=0;
-    fi (s.sz) {
-        char c=s[i];
-        if (c>='0' && c<='9') {
-            num*=10;
-            num+=c-'0';
-        } else 
-            return 0;
-    }
-    
-    if (num>0) num = (num-1) % text_lines;
-    int i=text_line_begin(num);
-    text_move(i);
-    return 1;
 }
 
 int text_search(string s) 
@@ -1091,25 +1080,32 @@ void macro_display() {
 
 /******************************************************************/
 /******************************************************************/
-
-// pb: how to track the column ??
-// we can do it in screen, if only screen commands, otherwise chg.
-// But we need it as well for macro it seems ! or ^J & ^K just go 
-// at the line begin ?? not conviced.
-int screen_cmd() {
+int text_goto() {
     char c;
     int num=0;
+    int count=0;
+    string my_message="Goto: ";
     while (1) {
+        text_message = my_message;
         c=text_getchar();
         if (isnum(c)) {
             num = 10*num + c-'0';
+            count++;
+            my_message.pb(c);
+        } else if (c==KEY_BACKSPACE && count>0) {
+            num /=10;
+            my_message.erase(my_message.end()-1);
+            count--;
+        } else if (c==KEY_ENTER) {        
+            if (num>0) num = (num-1) % text_lines;
+            int i=text_line_begin(num);
+            text_move(i);
+            line_goto(base_pos);
+            break;
         } else {
+            replay=c;
             break;
         }
-    }
-    switch(c) {
-        case 'l' : text_move(text_gap-num);break;
-        case 'r' : text_move(text_restart+num);break;
     }
 }
 
@@ -1141,6 +1137,7 @@ int macro_record() {
     if (record_data.sz>1) {
         record_data.erase(record_data.end()-1);
         macro_data = record_data;
+        macro_data.pb(KEY_NULL);
         macro_end = text_gap;
         return 1;
     }
@@ -1160,19 +1157,16 @@ int macro_exec() {
     play_macro = macro_data;
     // un truc qui fait rien;
     // Il faut changer ça ...
-    play_macro.pb(KEY_A); 
     if (text_gap == macro_end) {
         if (macro_change_line()) {
             insert();
             macro_end=text_gap;
-            text_getchar();
         } else {
             play_macro.clear();
         }
     } else {
         insert();
         macro_end=text_gap;
-        text_getchar();
         macro_change_line();
     }
 }
@@ -1180,7 +1174,6 @@ int macro_exec() {
 void replace() {
     int i=0;
     vector<int> yop=macro_data;
-    yop.pb(KEY_A);
     // PB : this change when we replace stuff !!
     int limit=text_gap;
     int old=0;
@@ -1194,7 +1187,6 @@ void replace() {
         if (old<limit) {
             limit += text_gap-old;
         }
-        text_getchar();
     }
     SS m;
     m << i << " operations.";
@@ -1205,7 +1197,7 @@ void macro_till() {
     if (text_gap==macro_end && (macro_next==KEY_NEXT || macro_next==KEY_PREV)) 
         return replace();
     vector<int> yop = macro_data;
-    yop.pb(KEY_A);
+    yop.pb(KEY_NULL);
     int limit=text_l;
     text_absolute_move(macro_end);
     if (text_l==limit) return;
@@ -1216,7 +1208,6 @@ void macro_till() {
         play_macro = yop;
         insert();
         macro_end=text_gap;
-        text_getchar();
     } while (text_l!=limit);
 }
 
@@ -1224,16 +1215,14 @@ void macro_till() {
 // jump to last pos w screen_save/screen_restore ...
 // pb (nothing to do with main ...)
 int mainloop() {
-    char small=KEY_DOWN;
     int c=0;
     while (c!=KEY_QUIT) {
-        if (macro_record()) {
-            small=KEY_TILL;
-        }
+        // insert? + record?
+        macro_record();
+        // other command to process
         int b=1;
         c = text_getchar();
         switch (c) {
-            case KEY_NULL: screen_cmd();break;
             case KEY_END: text_move(next_eol());break;
             case KEY_BEGIN: text_move(prev_eol());break;
             case KEY_LEFT: text_move(text_gap-1);break;
@@ -1244,11 +1233,11 @@ int mainloop() {
             case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
             case KEY_PPAGE: text_ppage();b=0;break;
             case KEY_NPAGE: text_npage();b=0;break;
-            case KEY_GOTO: text_command(">");text_jump(cmd);break;
+            case KEY_GOTO: text_goto();b=0;break;
             case KEY_FIND: text_command("/");text_search(cmd);macro_next=KEY_NEXT;break;
             case KEY_WORD: search_id();macro_next=KEY_NEXT;break;
             case KEY_UNDO: text_undo();break;
-            case KEY_DISP: macro_display();screen_ol();break;
+//            case KEY_DISP: macro_display();screen_ol();break;
             case KEY_TILL: macro_till();b=0;break;
             case KEY_REDO: 
                 if (!text_redo()) {
@@ -1256,20 +1245,13 @@ int mainloop() {
                     b=0;
                 }
                 break;
-            case KEY_YLINE: yank_line();small=KEY_PRINT;break;
-            case KEY_DLINE: del_line();small=KEY_PRINT;break;
-            case KEY_OLINE: open_line_before();small=' ';break;
+            case KEY_YLINE: yank_line();break;
+            case KEY_DLINE: del_line();break;
+            case KEY_OLINE: open_line_before();break;
             case KEY_JUSTIFY: justify();break;
-            case KEY_PRINT: 
-//                            text_move(next_eol()+1);
-                            text_print();
-//                            text_move(text_gap-1);
-                            break;
-//            case KEY_L: text_move(next_eol()+1);text_print();break;
-            case KEY_A: break;
-//          case KEY_TAB: replay=small;break;
+            case KEY_PRINT: text_print();break;
             case KEY_SAVE: text_save();break;
-            case KEY_ENTER: smart_enter();small=' ';break;
+            case KEY_ENTER: smart_enter();break;
 // here only on line boundary ...
             case KEY_BACKSPACE: smart_backspace();b=0;break;
             case KEY_DELETE: smart_delete();b=0;break;
