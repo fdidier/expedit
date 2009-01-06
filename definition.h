@@ -1,4 +1,5 @@
 #include "signal.h"
+#include "unistd.h"
 
 #include <vector>
 #include <string>
@@ -57,10 +58,10 @@ extern int      text_line_begin(int);
 extern string   text_highlight;
 extern string   text_message;
 
-extern void     screen_save();
-extern void     screen_restore();
-extern void     screen_npage();
-extern void     screen_ppage();
+//extern void     screen_save();
+//extern void     screen_restore();
+//extern void     screen_npage();
+//extern void     screen_ppage();
 
 extern void     screen_init();
 extern void     screen_redraw(int hint=-1);

@@ -321,7 +321,6 @@ void screen_compute_wanted()
                 screen_wanted[n][shift-1-j]= ' ';
             } else {
                 screen_wanted[n][shift-1-j]= (num%10) +'0';
-                color_wanted[n][shift-1-j]=YELLOW;
                 num/=10;
             }
             j++;
@@ -331,7 +330,7 @@ void screen_compute_wanted()
                 int pos = i - text_gap;
                 if (pos>0) pos = i - text_restart;
                 pos += screen_wanted_j;
-                if (pos>=shift && pos+shift <screen_columns) {
+                if (pos>=shift && pos < screen_columns ) {
                    screen_wanted[n][j] = text[i];
                    j++;
                 }
@@ -352,16 +351,19 @@ void screen_compute_wanted()
             j++;
         }
     }
+}
 
-    // message ?
+void display_message() {
     if (!text_message.empty()) {
         int i=0;
         while (i<text_message.sz && i<screen_columns) {
             if (text_message[i]==EOL) text_message[i]='J';
             screen_wanted[screen_lines-1][i] = text_message[i];
+            color_wanted[screen_lines-1][i] = BLACK | REVERSE;
             i++;
         }
         screen_wanted[screen_lines-1][i]=EOL;
+        color_wanted[screen_lines-1][i]=0;
     }
 }
 
@@ -376,8 +378,11 @@ void screen_highlight()
         int blue=0;
         int first=1;
         fj(screen_columns) {
-            if (j<shift) continue;
             color_wanted[i][j]=0;
+            if (j<shift) {
+                color_wanted[i][j]=YELLOW;
+                continue;
+            }
             if (yo[i][j]==EOL) break;
             if (yo[i][j]==' ') continue;
             
@@ -388,6 +393,7 @@ void screen_highlight()
             first=0;    
             if (blue)
                 color_wanted[i][j] = MAGENTA; 
+//            else color_wanted[i][j] = WHITE;
         }
     }
     
@@ -568,6 +574,7 @@ void screen_redraw(int hint)
         
         screen_compute_wanted(); 
         screen_highlight(); 
+        display_message();
 
         term_reset();
         screen_clear();
@@ -589,10 +596,10 @@ void screen_refresh()
         screen_movement_hint();
         screen_compute_wanted(); 
         screen_highlight(); 
+        display_message();
         screen_make_it_real();
         screen_done();
 }
-
 
 // mouvement bizarre des fois !!
 void screen_ppage() {
@@ -617,6 +624,7 @@ void screen_ol() {
     else opt_line=1;
 }
 
+int force = -1;
 vector<int> buffer;
 int screen_getchar() {
     int c;
@@ -625,6 +633,15 @@ int screen_getchar() {
         buffer.erase(buffer.end()-1);
         return c;
     }
+
+    // refresh screen
+    if (force>=0) {
+        screen_redraw(force);
+        force=-1;
+    } else {
+        screen_refresh();
+    }
+
     while (1) {
         c = term_getchar();
         if (c==KEY_DISP) {
@@ -636,6 +653,28 @@ int screen_getchar() {
             break;
         } else if (c==WHEEL_DOWN) {
             fi(4) buffer.pb(KEY_DOWN);
+            c = KEY_DOWN;
+            break;
+        } else if (c==PAGE_UP) {
+            if (screen_real_i==text_l) continue;
+            if (screen_real_i != screen_lines-2) {
+                screen_redraw(screen_lines-2);
+                continue;
+            }
+            force = screen_lines-2;
+            fi (screen_lines-4) buffer.pb(KEY_UP);
+            c = KEY_UP;
+            break;
+        } else if (c==PAGE_DOWN) {
+            if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) continue; 
+            if (screen_real_i > 1) {
+                screen_redraw(1);
+                continue;
+            }
+            // problem when we are on line 0...
+            // do one more down ?
+            force = 1;
+            fi (screen_lines-4) buffer.pb(KEY_DOWN);
             c = KEY_DOWN;
             break;
         } else {

@@ -43,7 +43,7 @@ void set_input_mode (void)
      
        /* Save the terminal attributes so we can restore them later. */
        tcgetattr (STDIN_FILENO, &saved_attributes);
-       atexit (reset_input_mode);
+       //atexit (reset_input_mode);
      
        /* Set the funny terminal modes. */
        tcgetattr (STDIN_FILENO, &tattr);
@@ -90,8 +90,8 @@ int shift_escape_sequence() {
     if (read(STDIN_FILENO, &c, 1) && c== '2') 
     if (read(STDIN_FILENO, &c, 1)) {
         switch(c) {
-            case 'A' : return KEY_PPAGE;
-            case 'B' : return KEY_NPAGE;
+            case 'A' : return PAGE_UP;
+            case 'B' : return PAGE_DOWN;
             case 'C' : return KEY_END;
             case 'D' : return KEY_BEGIN;
             case 'H' : return KEY_BEGIN;
@@ -113,10 +113,10 @@ int  tilde_escape_sequence(char c)
                         a = KEY_DELETE;
                         break;
                 case '5':
-                        a = KEY_PPAGE;
+                        a = PAGE_UP;
                         break;
                 case '6':
-                        a = KEY_NPAGE;
+                        a = PAGE_DOWN;
                         break;
                 case '7':
                         a = KEY_BEGIN;
@@ -292,10 +292,20 @@ void term_putchar(int c, int color)
         c += 64;
         color = RED;
     }
-
-    if (fg_color != color) {
-        SET_FG_COLOR(color);
-        fg_color = color;
+    
+    int col = color & 0xFF;
+    if (fg_color != col) {
+        SET_FG_COLOR(col);
+        fg_color = col;
+    }
+    
+    if (color & REVERSE && !video_reverse) {
+        video_reverse=1;
+        REVERSE_VIDEO;
+    }
+    if ((color & REVERSE)==0 && video_reverse) {
+        video_reverse=0;
+        NORMAL_VIDEO;
     }
 
     do {

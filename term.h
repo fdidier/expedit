@@ -55,6 +55,8 @@ void term_putchar(int c, int color=0);
 #define CYAN    6
 #define WHITE   7
 
+#define REVERSE 1<<10
+
 #define NORMAL_COLOR    0
 #define COMMENTS_COLOR  4
 
@@ -73,45 +75,49 @@ void term_putchar(int c, int color=0);
 #define KEY_TAB         CTRL('I')
 #define KEY_BACKSPACE   CTRL('H')
 #define KEY_ENTER       CTRL('M')
+#define KEY_EOL         CTRL('J')
 
-// Keys that the user can acces without ctrl
-#define KEY_PPAGE       CTRL('^')   // to screen
-#define KEY_NPAGE       CTRL('_')   // to screen
+// What would be nice to use
+// and their replacement for now
+
+#define CONTROL_I       CTRL('_')
+#define CONTROL_J       CTRL('^')
+#define CONTROL_M       CTRL(']')
+
 #define KEY_DELETE      CTRL('D')
-#define KEY_INSERT      CTRL('@') 
+#define KEY_INSERT      CTRL('\\') 
+
+// used for run length coding
 #define KEY_NULL        CTRL('@')
 
-// unused Key yet
-#define KEY_SELECT      CTRL(']')
-#define KEY_MACRO       CTRL('\\')
+// not implemented yet
+#define KEY_MACRO       CTRL('A')
 
-// Still needed
-// KEY_SELECT + termine avec ctrl C/ctrl X/ Ctrl V?
-// KEY_MACRO : start/end more complex sequence than the automatic ones
-// KEY to exec macro? or redo/till ??
-// paste mode....
-//
-// GOTO mode ??
-// ijkl, b/e, number[:pos in line] + enter
+// arrow key
+#define KEY_DOWN        CTRL('K')
+#define KEY_UP          CONTROL_I
+#define KEY_LEFT        CONTROL_J
+#define KEY_RIGHT       CTRL('L')
 
-// same here but no room ...
-#define KEY_DOWN        CTRL('J')
-#define KEY_UP          CTRL('K')
+// goto, 
+// TODO: add flavour to go to begin/end of text
+// to given char ?
+#define KEY_GOTO        CTRL('G')
 
+// search stuff
 #define KEY_WORD        CTRL('W')
 #define KEY_FIND        CTRL('F')
-#define KEY_GOTO        CTRL('G')
 
 #define KEY_NEXT        CTRL('N')
 #define KEY_PREV        CTRL('P')
-
-#define KEY_LEFT        CTRL('A')
-#define KEY_RIGHT       CTRL('L')
 
 #define KEY_END         CTRL('E')
 #define KEY_BEGIN       CTRL('B')
 
 #define KEY_OLINE       CTRL('O')
+
+#define KEY_MARK        CONTROL_M
+
 #define KEY_DLINE       CTRL('X')
 #define KEY_YLINE       CTRL('C') 
 #define KEY_PRINT       CTRL('V') 
@@ -123,9 +129,10 @@ void term_putchar(int c, int color=0);
 #define KEY_REDO        CTRL('R') 
 #define KEY_TILL        CTRL('T')
 
-#define KEY_DISP        CTRL('Z')  // to screen
 #define KEY_JUSTIFY     CTRL('Y')
 
+// to screen (used internaly to make a pos
+#define KEY_DISP        CTRL('Z')
 
 // special commands
 // first byte is null
@@ -134,3 +141,5 @@ void term_putchar(int c, int color=0);
 #define WHEEL_DOWN      (2 << 8)
 #define MOUSE_1         (3 << 8)
 #define MOUSE_2         (4 << 8)
+#define PAGE_UP         (5 << 8)
+#define PAGE_DOWN       (6 << 8)

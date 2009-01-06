@@ -1,21 +1,22 @@
 #include "definition.h"
 #include "term.h"
 
-string       filename;
+char        *filename;
 int          text_saved;
 
 string          text_highlight;
 string          text_message;
 vector<int>     text;           // gap_buffer   
-int             text_gap;       // cursor/gap absolute position
-int             text_restart;   // end of the text until text.sz
-int             text_end;       // number of char in the gap buffer
-int             text_lines;     // total number of line in text
-int             text_l;         // current line number
-int             text_modif;     // indicateur de modif...
+int             text_gap=0;       // cursor/gap absolute position
+int             text_restart=0;   // end of the text until text.sz
+int             text_end=0;       // number of char in the gap buffer
+int             text_lines=0;     // total number of line in text
+int             text_l=0;         // current line number
+int             text_modif=1;     // indicateur de modif...
 int             text_blocsize = 1024;
 
-vector<int> saved_lines;
+// selection
+vector<int> selection;
         
 void dump_error(char *err) {
     fprintf(stderr,"err: ");
@@ -23,6 +24,8 @@ void dump_error(char *err) {
     fprintf(stderr,"\n");
 }
 
+// check text size and realloc if needed
+// TODO : use realloc ?
 void text_check(int l) 
 {
     int gapsize=text_restart - text_gap;
@@ -39,23 +42,9 @@ void text_check(int l)
     text_end = text.sz;
 }
 
-int undo_pos;
-int undo_mrk;
+int undo_pos=-1;
+int undo_mrk=-1;
 int undo_last;
-
-void text_init() 
-{
-    undo_pos=-1;
-
-    text_gap=0;
-    text_l=0;
-    text_restart=0;
-    text_modif=1;
-    text_end=0;
-    text_lines=0;
-    text_check(text_blocsize);
-    undo_mrk = -1;
-}   
 
 void edit_text() {
     text_modif++;
@@ -64,6 +53,7 @@ void edit_text() {
 
 // ***************************
 // undo stuff.
+// ***************************
 
 struct s_undo {
     int pos;
@@ -101,11 +91,6 @@ void undo_flush()
         op.content.pb(text[b]);
         b++;
     }
-//  not sure ... 
-//  Weird behavior, copy after del ...
-//    if (op.del) {
-//        saved_lines=op.content;
-//    }
 
     undo_stack.pb(op);
     undo_pos=-1;
@@ -198,8 +183,6 @@ void text_delete()
  *
  * Never go behond the last EOL (gap<text.sz).
  *
- * Utf-8 :
- * Never stop in the middle of a sequence !!
  */
 void text_move(int i) 
 {
@@ -282,21 +265,18 @@ int text_redo() {
     return 1;
 }
 
-void text_typechar(int c) 
-{
-    text_putchar(c);
-}
+// **********************************************************
+// **********************************************************
 
-//**********************************************************
-//**********************************************************
-//**********************************************************
 // next_eol/prev_eol/ i-th eol
+// TODO:
 // Cache values to be efficient in case of big lines...
 // Problem is to change them in case of deletion/insertion modif
 // But it should be easy ...
 
-// return index off the next EOL
-int next_eol() {
+// return index of the next EOL
+int next_eol() 
+{
     int i=text_restart;
     while (i<text_end && text[i]!=EOL) 
         i++;
@@ -304,7 +284,8 @@ int next_eol() {
 }
 
 // return index just after the previous EOL
-int prev_eol() {
+int prev_eol() 
+{
     int i=text_gap;
     while (i>0 && text[i-1]!=EOL) 
         i--;
@@ -375,12 +356,13 @@ int text_line_begin(int l)
     return i;
 }
 
+// **********************************************************
+
 // after a change of line,
 // base pos should be the original position the cursor goto
 int base_pos;
 
-// TODO : remove those
-// change it into compute line begin
+// return pos in the current line
 int compute_pos() 
 {
     return text_gap - prev_eol();
@@ -445,11 +427,6 @@ int      swap_index;
  * like in redo mode. or macro.
  *
  */
-void text_refresh() 
-{
-    screen_refresh();
-    text_message.clear();
-}
 
 int replay=0;
 int pending=0;
@@ -474,18 +451,22 @@ int text_getchar()
         swap_index=0;
     }
 
+    // add (+) to the title to reflect a modified text ?
     static int oldstatus;
-    text_refresh();
     if (oldstatus!=text_saved) {
-        string title=filename;
+        string title(filename);
         if (!text_saved) 
             title += " (+)";
         term_set_title((uchar *) title.c_str());
         oldstatus=text_saved;
     }
 
-    /* read the next input char */
+    // read the next input char 
+    // As a side effect, this update the screen
     int res = screen_getchar();
+    
+    // clear text message
+    text_message.clear();
 
     // to group operation in the undo struct corresponding to
     // only one keystroke and remember the position that started it all
@@ -494,6 +475,11 @@ int text_getchar()
     // record char ?
     if (record) record_data.pb(res);
 
+    // TODO: run-length coding because many movement commands ??
+    // or just @ + position with 4 char...
+    // put a file limit < 4 GB...
+
+    // reconvert in utf-8 before writing in swap file
     int temp = (uint) res;
     do {
         swap_stream.put( temp & 0xFF);
@@ -501,12 +487,12 @@ int text_getchar()
         temp >>= 8;
     } while (temp);
         
+    // return char
     return res;
 }
 
 /*******************************************************************/
-/* implementation of the commands 
- */
+// useful functions 
  
 int is_begin() {
     int i=text_gap;
@@ -523,16 +509,24 @@ int is_space_before() {
     return (i==0 || text[i-1]==EOL || text[i-1]==' ');
 }
 
+int capitalise(int c) {
+    if ((c>='a' && c<='z')) return c-'a'+'A';
+}
+
+
+/*******************************************************************/
+// implementation of the commands
+
 vector<int> inserted;
 
 void yank_line() {
-    saved_lines.clear();
+    selection.clear();
     char c;
     do {
         int i=prev_eol();
         text_move(next_eol()+1);
         while (i<text_gap) {
-            saved_lines.pb(text[i]);
+            selection.pb(text[i]);
             i++;
         }
         c =text_getchar();
@@ -541,7 +535,7 @@ void yank_line() {
 }
 
 void del_line() {
-    saved_lines.clear();
+    selection.clear();
 
     // move to line begin
     text_move(prev_eol());
@@ -553,9 +547,10 @@ void del_line() {
         // save line 
         int i=text_restart;
         do {
-            saved_lines.pb(text[i]);
+            selection.pb(text[i]);
             i++;
-        } while (i<text.sz && saved_lines[saved_lines.sz-1]!=EOL);
+        } while (i<text.sz && selection[selection.sz-1]!=EOL);
+        
         // delete it
         while (text_restart<text.sz && text[text_restart]!=EOL) {
             text_delete();
@@ -568,35 +563,24 @@ void del_line() {
 }
 
 void text_print() {
-    fi (saved_lines.sz) 
-        text_putchar(saved_lines[i]);
+    fi (selection.sz) 
+        text_putchar(selection[i]);
 }
 
-int capitalise(int c) {
-    if ((c>='a' && c<='z')) return c-'a'+'A';
-}
-
-void insert_indent() {
-    int i=text_gap;
-    int pos=0;
-    while (i>0 && text[i-1] != EOL) {
-        i--;
-        pos++;
-    }
-//    i = text_restart;
-//    while (i<text_end && text[i]==' ') {
-//        i++;
-//        pos++;
-//    }
-//    text_move(i);
+void insert_indent() 
+{
+    int pos=compute_pos();
     do {
         text_putchar(' ');
         pos++;
     } while (pos % TABSTOP != 0);
 }
 
-void smart_backspace() {
+void smart_backspace() 
+{
     int i=text_gap;
+
+    // remove indent if necessary
     if (i>0 && text[i-1]==' ') {
         int pos = compute_pos();
         do {
@@ -605,7 +589,9 @@ void smart_backspace() {
             i--;
         } while (i>0 && text[i-1]==' ' && pos % TABSTOP !=0);
         return;
-    } 
+    }
+
+    // remove trailing char
     if (i>0 && text[i-1]==EOL) {
         do {
             text_backspace();
@@ -613,11 +599,16 @@ void smart_backspace() {
         } while (i>0 && text[i-1]==' ');
         return;
     }
+
+    // normal behavior
     text_backspace();
 }
 
-void smart_delete() {
+void smart_delete() 
+{
     int i=text_restart;
+
+    // deal with indent
     if (i+1<text_end && text[i]==' ') {
         int pos=compute_pos();
         int pos2=0;
@@ -631,6 +622,8 @@ void smart_delete() {
         } while (pos2>0 && (pos+pos2) % TABSTOP !=0);
         return;
     }
+
+    // deal with end of line
     if (i+1<text_end && text[i]==EOL) {
         do {
             text_delete();
@@ -638,62 +631,64 @@ void smart_delete() {
         } while (i+1<text_end && text[i]==' ');
         return;
     }
+
+    // normal behavior
     text_delete();
 }
 
-void smart_enter() {
+void smart_enter() 
+{
+    // compute line indent
+    // from current position
     int i=prev_eol();
     int pos=0;
-//    if (text_gap==i) {
-//        i=text_restart;
-//        while (i<text_end && text[i]==' ') {
-//            i++;
-//            pos++;
-//        }
-//        text_putchar(EOL);
-//        text_move(text_gap-1);
-//    } else { 
-        while (i<text_gap && text[i]==' ') {
-            i++;
-            pos++;
-        }
-        text_putchar(EOL);
-//    }
+    while (i<text_gap && text[i]==' ') {
+        i++;
+        pos++;
+    }
+
+    // put EOL and correct indent
+    text_putchar(EOL);
     fj(pos) text_putchar(' ');
 }
 
-void open_line_after() {
+void open_line_after() 
+{
     text_move(next_eol());
     smart_enter();
 }
 
-void open_line_before() {
+void open_line_before() 
+{
     text_move(prev_eol());
     text_putchar(EOL);
+
+    // compute line indent
     int pos=0;
     int i=text_restart;
     while (text[i++]==' ') pos++;
+
+    // insert it
     text_move(text_gap-1);
     for (int j=0; j<pos; j++) text_putchar(' ');
 }
 
-
 /******************************************************************/
 /******************************************************************/
 
-int text_save() {
+int text_save() 
+{
+    // flush swap so we are safe if anything happen
     swap_stream.flush();
 
+    // open file and write new content
     ofstream s;
-    s.open(filename.c_str(),ios_base::trunc);
-    fi (text_gap) {
-        int temp = text[i];
-        do {
-            s.put(temp);
-            temp>>=8;
-        } while (temp);
-    }
-    for (int i=text_restart; i<text_end; i++) {
+    s.open(filename,ios_base::trunc);
+    fi (text_end) {
+        // jump gap if needed
+        if (i==text_gap) i=text_restart;
+
+        // convert to utf-8
         int temp = text[i];
         do {
             s.put(temp);
@@ -704,22 +699,6 @@ int text_save() {
 
     text_message="File saved.";
     text_saved=1;
-}
-
-
-// remove this
-// Just quit and allow for recovery if a mistake was done
-int text_exit() {
-    if (text_saved) return 1;
-    text_message="The file is not saved. q:quit  s:save and quit";
-    int c=text_getchar();
-    if (c=='q'||c=='Q') return 1;
-    if (c=='s'||c=='S') {
-        text_save();
-        return 1;
-    }
-    replay = c;
-    return 0;
 }
 
 /******************************************************************/
@@ -805,7 +784,7 @@ vector<int> text_complete()
     if (last_completions.find(begin)!=last_completions.end()) {
         end = last_completions[begin];
         possibilities.insert(end);
-        fi (end.sz) text_typechar(end[i]);
+        fi (end.sz) text_putchar(end[i]);
         c=text_getchar();
     }
         
@@ -821,7 +800,7 @@ vector<int> text_complete()
             end=search_comp(begin,pos);
             if (end.sz==0) return end;
             possibilities.insert(end);
-            fi (end.sz) text_typechar(end[i]);
+            fi (end.sz) text_putchar(end[i]);
             c=text_getchar();
         }
     }
@@ -842,13 +821,13 @@ int insert() {
         if (c==KEY_INSERT) {
             int c=text_getchar();
             if (c!=EOL) {
-                text_typechar(c);
+                text_putchar(c);
                 inserted.pb(c);
                 continue;
             }
         }
         if (isprint(c)) {
-            text_typechar(c);
+            text_putchar(c);
             inserted.pb(c);
             continue;
         }
@@ -962,14 +941,24 @@ int text_search_back(string s)
     return 1;
 }
 
+vector<string> history;
 void text_command(string prompt) {
     cmd.clear();
     char c;
+    string current;
+    int size=history.size();
+    int modulo=size+1;
+    int index=size;
     while (1) {
-        text_message=prompt+cmd;
+        if (cmd.empty()) {
+            text_message=prompt;
+        } else {
+            text_message=cmd;
+        }
         c=text_getchar();
         if (isprint(c)) {
             cmd.pb(c);
+            current=cmd;
             continue;
         }
         if (c==KEY_BACKSPACE) {
@@ -977,15 +966,35 @@ void text_command(string prompt) {
                 cmd.erase(cmd.end()-1);
             if (cmd.empty()) return;
             cmd.erase(cmd.end()-1);
+            current=cmd;
+            continue;
+        }
+        if (c==KEY_UP) {
+            index = (index+modulo-1) % modulo;
+            if (index<size)
+                cmd = history[index];
+            else cmd=current;
+            continue;
+        }
+        if (c==KEY_DOWN) {
+            index = (index + 1) % modulo;
+            if (index<size) 
+                cmd = history[index];
+            else cmd=current;
             continue;
         }
         if (c==KEY_ENTER) {
-//            if (cmd.empty()) {
-//                // search word under cursor
-//                return;
-//            }
-//            if (text_jump(cmd)) return;
-//            if (text_search(cmd)) return;
+            // save in history.
+            // no duplicate.
+            int i=0;
+            for (;i<history.sz; i++) 
+                if (history[i]==cmd) break;
+            if (i<history.sz) {
+                for (;i+1<history.sz; i++)
+                    history[i]=history[i+1];    
+                history[history.sz-1]=cmd;
+            } else 
+                history.pb(cmd);
             return;
         }
         replay = c;
@@ -1080,13 +1089,17 @@ void macro_display() {
 
 /******************************************************************/
 /******************************************************************/
+
 int text_goto() {
     char c;
     int num=0;
     int count=0;
-    string my_message="Goto: ";
+    string my_message="";
     while (1) {
-        text_message = my_message;
+        if (count)
+            text_message = my_message;
+        else
+            text_message = "<goto>";
         c=text_getchar();
         if (isnum(c)) {
             num = 10*num + c-'0';
@@ -1119,16 +1132,6 @@ void text_down() {
     line_goto(base_pos);
     macro_next=KEY_DOWN;
 }
-void text_ppage() {
-    screen_ppage();
-    line_goto(base_pos);
-    macro_next=KEY_UP;
-}
-void text_npage() {
-    screen_npage();
-    line_goto(base_pos);
-    macro_next=KEY_DOWN;
-}
 
 int macro_record() {
     start_record();
@@ -1141,6 +1144,7 @@ int macro_record() {
         macro_end = text_gap;
         return 1;
     }
+    return 0;
 }
 
 int macro_change_line() {
@@ -1156,7 +1160,7 @@ int macro_change_line() {
 int macro_exec() {
     play_macro = macro_data;
     // un truc qui fait rien;
-    // Il faut changer ça ...
+    // Il faut changer ca ...
     if (text_gap == macro_end) {
         if (macro_change_line()) {
             insert();
@@ -1211,37 +1215,120 @@ void macro_till() {
     } while (text_l!=limit);
 }
 
-// REMOVED:
-// jump to last pos w screen_save/screen_restore ...
-// pb (nothing to do with main ...)
+// ********************************************************
+
+// Save position and return to it
+// save as well screen state 
+// Not clean when redoing stuff without screen ...
+
+int  saved_gap=-1;
+void save_pos() {
+    saved_gap = text_gap;
+    //screen_save();
+}
+
+void restore_pos() {
+    if (saved_gap<0) return;
+    text_absolute_move(saved_gap);
+   // screen_restore();
+}
+
+// ********************************************************
+
+void yank_select(int mark) {
+    int b,e;
+    if (mark<text_gap) {
+        b=mark;
+        e=text_gap;
+    } else {
+        b=text_restart;
+        e=mark + text_restart-text_gap;
+    }
+    selection.clear();
+    while (b<e) {
+        selection.pb(text[b]);
+        b++;
+    }
+}
+
+void del_select(int mark) {
+    if (mark<text_gap) {
+        while (mark<text_gap) 
+            text_backspace();
+    } else {
+        int limit = mark + text_restart - text_gap; 
+        while (text_restart<limit) 
+            text_delete();
+    }
+}
+
+int move_command(char c) 
+{
+    switch (c) {
+        case KEY_UP: text_up();return 1;
+        case KEY_DOWN: text_down();return 1;
+        case KEY_GOTO: text_goto();return 1;
+    }
+    switch (c) {
+        case KEY_BEGIN: text_move(prev_eol());break;
+        case KEY_END: text_move(next_eol());break;
+        case KEY_LEFT: text_move(text_gap-1);break;
+        case KEY_RIGHT: text_move(text_restart+1);break;
+        case KEY_FIND: text_command("<search>");text_search(cmd);macro_next=KEY_NEXT;break;
+        case KEY_WORD: search_id();macro_next=KEY_NEXT;break;
+        case KEY_NEXT: text_search(cmd);macro_next=KEY_NEXT;break;
+        case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
+        default : return 0;
+    }
+    base_pos = compute_pos();
+    //save_pos();
+    return 1;
+}
+
+void text_select() {
+    int mark = text_gap;
+    while (1) {
+        int c = text_getchar();
+        if (move_command(c)) continue;
+        switch (c) {
+            case KEY_YLINE : yank_select(mark);return;
+            case KEY_DLINE : yank_select(mark);
+                             del_select(mark);
+                             return;
+            case KEY_PRINT : del_select(mark);
+                             text_print();
+                             return;
+            case KEY_ESC : text_absolute_move(mark);
+                           base_pos=compute_pos();
+                           return;
+        }
+        replay = c;
+        return;
+    }   
+}
+
+// save pos on any modification...
 int mainloop() {
     int c=0;
     while (c!=KEY_QUIT) {
         // insert? + record?
-        macro_record();
+        if (macro_record()) { 
+            save_pos();
+        }
         // other command to process
         int b=1;
         c = text_getchar();
+        if (move_command(c)) continue;
         switch (c) {
-            case KEY_END: text_move(next_eol());break;
-            case KEY_BEGIN: text_move(prev_eol());break;
-            case KEY_LEFT: text_move(text_gap-1);break;
-            case KEY_RIGHT: text_move(text_restart+1);break;
-            case KEY_UP: text_up();b=0;break;
-            case KEY_DOWN: text_down();b=0;break;
-            case KEY_NEXT: text_search(cmd);macro_next=KEY_NEXT;break;
-            case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
-            case KEY_PPAGE: text_ppage();b=0;break;
-            case KEY_NPAGE: text_npage();b=0;break;
-            case KEY_GOTO: text_goto();b=0;break;
-            case KEY_FIND: text_command("/");text_search(cmd);macro_next=KEY_NEXT;break;
-            case KEY_WORD: search_id();macro_next=KEY_NEXT;break;
+            case KEY_ESC : restore_pos();break;
+            case KEY_EOL : text_putchar(EOL);
+            case KEY_MARK: text_select();b=0;break;
             case KEY_UNDO: text_undo();break;
-//            case KEY_DISP: macro_display();screen_ol();break;
-            case KEY_TILL: macro_till();b=0;break;
+            case KEY_TILL: macro_till();b=0;save_pos();break;
             case KEY_REDO: 
                 if (!text_redo()) {
                     macro_exec();
+                    save_pos();
                     b=0;
                 }
                 break;
@@ -1252,35 +1339,33 @@ int mainloop() {
             case KEY_PRINT: text_print();break;
             case KEY_SAVE: text_save();break;
             case KEY_ENTER: smart_enter();break;
-// here only on line boundary ...
-            case KEY_BACKSPACE: smart_backspace();b=0;break;
-            case KEY_DELETE: smart_delete();b=0;break;
+            // here only on line boundary ...
+            case KEY_BACKSPACE: smart_backspace();break;
+            case KEY_DELETE: smart_delete();break;
+            case KEY_DISP: // already processed in screen
+                           // used internally to save pos
             default: b=0;
         }
-        if (b) base_pos=compute_pos();
+        if (b) {
+            base_pos=compute_pos();
+            save_pos();
+        }
     }
 }
 
-int main(int argc, char **argv) 
-{
-    if (argc<2) exit(1);
-    filename = argv[1];
+// ********************************************************
 
-    /* basic init */
-    text_init();
+void terminate(int param) {
+    reset_input_mode();
+    exit(1);
+}
 
-//  todo:
-//  hash/crc ??
-//  get the file timestamp and make good use of it
-//  resume editing to the current pos.
-//  +-num line command option
-    
+int open_file() {
     /* Open file */
     ifstream inputStream;
-    inputStream.open(filename.c_str());
+    inputStream.open(filename);
     if (!inputStream) {
-        printf("Error openning file %s\n", argv[1]);
-        exit(0);
+        return 0;
     }
 
     /* Put file in gap buffer text */
@@ -1302,6 +1387,7 @@ int main(int argc, char **argv)
             }
         }
         
+        // convert tab in space
         last=ch;
         if (ch == '\t') {
             do {
@@ -1321,7 +1407,47 @@ int main(int argc, char **argv)
 
     /* close file */
     inputStream.close();
+    
+    return 1;
+}
 
+int main(int argc, char **argv) 
+{
+    signal(SIGTERM,terminate);
+
+    if (argc<2) exit(1);
+    filename = argv[1];
+
+    /* basic option */
+    int start_line=-1;
+    if (argc>2) {
+        int num=0;
+        int i=0;
+        while (argv[2][i]!=0) {
+            num = num * 10 + argv[2][i]-'0';
+            i++;
+        }
+        start_line=num;
+    }
+
+//  todo:
+//  hash/crc ??
+//  get the file timestamp and make good use of it
+//  resume editing to the current pos.
+//  +-num line command option
+
+    // test for existance
+    if (access(filename,F_OK)) {
+//        printf("File do not exist\n");
+//        exit(1);
+    } else {
+        if (!open_file()) {
+            printf("Error openning file %s\n", argv[1]);
+            exit(1);
+        }
+    }
+    
+//  TODO : do it only on the first save ...
 //  Do a backup of the original file
 //  not really useful if we keep the same swap file for all the editing session
 //  and we use a versionning system
@@ -1356,7 +1482,7 @@ int main(int argc, char **argv)
     }
     test.close();
     
-    // Open swap file
+// Open swap file
     swap_stream.open(swap_filename.c_str());
     if (!swap_stream) {
         printf("Error openning swap file %s\n", swap_filename.c_str());
@@ -1367,8 +1493,10 @@ int main(int argc, char **argv)
     fi (16) swap_stream << ' ';
     swap_stream << EOL;
 
-    /* Set position in the text */
+//  Set position in the text
+//  TODO: write corresponding instructions in swapfile. 
     text_move(oldpos);
+    if (start_line>=0) text_move(text_line_begin(start_line-1));
     base_pos=compute_pos();
     
     screen_init();
@@ -1395,11 +1523,5 @@ int main(int argc, char **argv)
         cout << "The file was not saved." << endl;
     cout.flush();
 
-//    Debug info ...
-//    undo_flush();
-//    fi (undo_stack.sz) {
-//        cout << undo_stack[i].num << " " << undo_stack[i].pos << endl;
-//        cout << undo_stack[i].content << endl;
-//    }
     exit(0);
 }
