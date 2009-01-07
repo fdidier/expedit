@@ -197,7 +197,7 @@ void screen_make_it_real()
                                 break;
                         }
 
-                        if (w != r || color_wanted[i-off][j] != color_real[i-b][j]) {
+                        if ( (w!=r) || (color_wanted[i-off][j] != color_real[i-b][j])) {
                             screen_move_curs(i,j);
                             screen_print(w,color_wanted[i-off][j]);
                         }
@@ -272,7 +272,7 @@ void screen_movement_hint()
 // if there is line number
 int shift;
 
-int opt_line=0;
+int opt_line=1;
 
 void screen_compute_wanted() 
 {
@@ -353,24 +353,67 @@ void screen_compute_wanted()
     }
 }
 
-void display_message() {
-    if (!text_message.empty()) {
-        int i=0;
-        while (i<text_message.sz && i<screen_columns) {
-            if (text_message[i]==EOL) text_message[i]='J';
-            screen_wanted[screen_lines-1][i] = text_message[i];
-            color_wanted[screen_lines-1][i] = BLACK | REVERSE;
-            i++;
-        }
-        screen_wanted[screen_lines-1][i]=EOL;
-        color_wanted[screen_lines-1][i]=0;
+void display_message() 
+{
+    if (text_message.empty()) return;
+    
+//    // clear end of line
+//    int j=0;
+//    while (j<screen_columns && screen_wanted[screen_lines-1][j]!=EOL) j++;
+//    while (j<screen_columns) {
+//        screen_wanted[screen_lines-1][j]=' ';
+//        color_wanted[screen_lines-1][j]=0;
+//        j++;
+//    }
+//    
+//    // replace by message
+//    j=0;
+//    int n=text_message.sz-1;
+//    screen_wanted[screen_lines-1][screen_columns]=EOL;
+//    color_wanted[screen_lines-1][screen_columns]=0;
+//    while (j<text_message.sz && j<screen_columns) {
+//        if (text_message[n-j]==EOL) text_message[n-j]='J';
+//        screen_wanted[screen_lines-1][screen_columns-1-j] = text_message[n-j];
+//        color_wanted[screen_lines-1][screen_columns-1-j] = BLACK | REVERSE;
+//        j++;
+//    }
+//    if (j<screen_columns) {
+//        screen_wanted[screen_lines-1][screen_columns-1-j]=' ';
+//        color_wanted[screen_lines-1][screen_columns-1-j]=0;
+//    }
+    
+    // begin of line version
+    int j=0;
+    while (j<text_message.sz && j<screen_columns) {
+        if (text_message[j]==EOL) text_message[j]='J';
+        screen_wanted[screen_lines-1][j] = text_message[j];
+        color_wanted[screen_lines-1][j] = BLACK | REVERSE;
+        j++;
+    }
+    screen_wanted[screen_lines-1][j]=EOL;
+    color_wanted[screen_lines-1][j]=0;
+}
+
+void highlight_search() {
+    if (search_highlight==0) return;
+    int j=screen_wanted_j-1;
+    int n=0;
+    while (j>=shift && n < search_highlight) {
+        color_wanted[screen_wanted_i][j] |= REVERSE;
+        j--;
+        n++;
     }
 }
 
 map<string,int> keyword;
 void screen_highlight() 
 {
-    /* comment */ 
+    // clear
+    fi (screen_lines)
+    fj (screen_columns)
+        color_wanted[i][j]=0;
+
+    // comment 
     int bloc=0; 
     int line=0; 
     uint **yo=screen_wanted;
@@ -378,13 +421,12 @@ void screen_highlight()
         int blue=0;
         int first=1;
         fj(screen_columns) {
-            color_wanted[i][j]=0;
+      //      color_wanted[i][j]=0;
             if (j<shift) {
                 color_wanted[i][j]=YELLOW;
                 continue;
             }
             if (yo[i][j]==EOL) break;
-            if (yo[i][j]==' ') continue;
             
             char c=yo[i][j];
             if (first)
@@ -575,6 +617,7 @@ void screen_redraw(int hint)
         screen_compute_wanted(); 
         screen_highlight(); 
         display_message();
+        highlight_search();
 
         term_reset();
         screen_clear();
@@ -597,6 +640,8 @@ void screen_refresh()
         screen_compute_wanted(); 
         screen_highlight(); 
         display_message();
+        highlight_search();
+//        fi (screen_lines) fj (screen_columns) color_real[i][j]=RED;
         screen_make_it_real();
         screen_done();
 }

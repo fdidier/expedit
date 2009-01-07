@@ -1,5 +1,12 @@
 #include "signal.h"
 #include "unistd.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "fcntl.h"
+#include "sys/sendfile.h"
+#include "sys/stat.h"
+#include "sys/types.h"
+
 
 #include <vector>
 #include <string>
@@ -35,7 +42,7 @@ typedef vector<string>  VS;
 
 /* text macro */
 #define isok(c)      ((uchar)(c)<0x80 || (uchar)(c)>0xBF)
-#define isprint(c)   ((uchar)(c)>=32)
+#define isprint(c)   (((c)>=32 && (c)<128) || (c)>=256)
 #define issmall(c)   ((c)>='a' && (c)<='z')
 #define isbig(c)     ((c)>='A' && (c)<='Z')
 #define isnum(c)     ((c)>='0' && (c)<='9')
@@ -54,7 +61,9 @@ extern int      text_restart;
 extern int      text_end;    
 extern void     text_move(int);
 extern int      text_line_begin(int);
+extern int      text_save();
     
+extern int      search_highlight;
 extern string   text_highlight;
 extern string   text_message;
 

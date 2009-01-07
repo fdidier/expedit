@@ -294,18 +294,19 @@ void term_putchar(int c, int color)
     }
     
     int col = color & 0xFF;
-    if (fg_color != col) {
+    if (fg_color != col && c!=' ') {
         SET_FG_COLOR(col);
         fg_color = col;
     }
     
-    if (color & REVERSE && !video_reverse) {
+    if ((color & REVERSE) && !video_reverse) {
         video_reverse=1;
         REVERSE_VIDEO;
     }
     if ((color & REVERSE)==0 && video_reverse) {
         video_reverse=0;
         NORMAL_VIDEO;
+        SET_FG_COLOR(col);
     }
 
     do {

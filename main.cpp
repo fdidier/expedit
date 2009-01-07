@@ -2,11 +2,14 @@
 #include "term.h"
 
 char        *filename;
+char        *swapname;
+char        *savename;
+
 int          text_saved;
 
 string          text_highlight;
 string          text_message;
-vector<int>     text;           // gap_buffer   
+vector<int>     text;             // gap_buffer   
 int             text_gap=0;       // cursor/gap absolute position
 int             text_restart=0;   // end of the text until text.sz
 int             text_end=0;       // number of char in the gap buffer
@@ -211,6 +214,11 @@ void text_move(int i)
             text_restart++;
         }
     }
+}
+
+int  text_real_position(int i) {
+    if (i<text_gap) return i;
+    else return i + text_restart-text_gap;
 }
 
 void text_absolute_move(int i) {
@@ -674,34 +682,6 @@ void open_line_before()
 }
 
 /******************************************************************/
-/******************************************************************/
-
-int text_save() 
-{
-    // flush swap so we are safe if anything happen
-    swap_stream.flush();
-
-    // open file and write new content
-    ofstream s;
-    s.open(filename,ios_base::trunc);
-    fi (text_end) {
-        // jump gap if needed
-        if (i==text_gap) i=text_restart;
-
-        // convert to utf-8
-        int temp = text[i];
-        do {
-            s.put(temp);
-            temp>>=8;
-        } while (temp);
-    }
-    s.close();
-
-    text_message="File saved.";
-    text_saved=1;
-}
-
-/******************************************************************/
 // Completion
 // todo : search in other direction when no match
 /******************************************************************/
@@ -819,7 +799,8 @@ int insert() {
         int c = text_getchar();
         if (c==KEY_NULL) break;
         if (c==KEY_INSERT) {
-            int c=text_getchar();
+            text_message="<insert>";
+            c=text_getchar();
             if (c!=EOL) {
                 text_putchar(c);
                 inserted.pb(c);
@@ -914,11 +895,11 @@ int text_search(string s)
     int t = search_next(s,text_restart);
     if (t>0)  text_move(t);
     else {
-        text_message = "search restarted on top.";
+        text_message = "search restarted on top";
         t = search_next(s,0);
         if (t>0) text_move(t);
         else {
-            text_message = "word not found.";
+            text_message = "word not found";
             return 0;
         }
     }
@@ -930,21 +911,72 @@ int text_search_back(string s)
     int t = search_prev(s,text_gap);
     if (t>=0)  text_move(t);
     else {
-        text_message = "search restarted on bottom.";
+        text_message = "search restarted on bottom";
         t = search_prev(s,text_end-2);
         if (t>=0) text_move(t);
         else {
-            text_message = "word not found.";
+            text_message = "word not found";
             return 0;
         }
     }
     return 1;
 }
 
+int search_highlight=0;
+
+void inline_search() {
+    cmd.clear();
+    int begin = text_gap;
+    while (1) {
+        if (cmd.empty()) {
+            text_message="<find>";
+            text_absolute_move(begin);
+        } else {
+            text_message=cmd;
+            int t=search_next(cmd,text_real_position(begin));
+            if (t>0)  
+                text_move(t);
+            else {
+                text_message = cmd + " (restarted on top)";
+                t = search_next(cmd,0);
+                if (t>0) 
+                    text_move(t);
+                else {
+                    text_message = cmd + " (not found)";
+                    cmd.erase(cmd.end()-1);
+                }
+            }
+        }
+        search_highlight = cmd.sz;
+        int c = text_getchar();
+        if (isprint(c)) {
+            cmd.pb(uchar(c));
+            continue;
+        }
+        if (c==KEY_BACKSPACE && !cmd.empty()) {
+            cmd.erase(cmd.end()-1);
+            continue;
+        }
+        if (c==KEY_TAB) {
+            while (isletter(text[text_restart])) {
+                cmd.pb(text[text_restart]);
+                text_move(text_restart+1);
+            }
+            continue;
+        }
+        if (c==KEY_ENTER) {
+            break;
+        }
+        replay = c;
+        break;
+    }
+    search_highlight=0;
+}
+
 vector<string> history;
 void text_command(string prompt) {
     cmd.clear();
-    char c;
+    int c;
     string current;
     int size=history.size();
     int modulo=size+1;
@@ -957,7 +989,7 @@ void text_command(string prompt) {
         }
         c=text_getchar();
         if (isprint(c)) {
-            cmd.pb(c);
+            cmd.pb(uchar(c));
             current=cmd;
             continue;
         }
@@ -1193,7 +1225,7 @@ void replace() {
         }
     }
     SS m;
-    m << i << " operations.";
+    m << i << " operations";
     text_message = m.str();
 }
 
@@ -1274,7 +1306,8 @@ int move_command(char c)
         case KEY_END: text_move(next_eol());break;
         case KEY_LEFT: text_move(text_gap-1);break;
         case KEY_RIGHT: text_move(text_restart+1);break;
-        case KEY_FIND: text_command("<search>");text_search(cmd);macro_next=KEY_NEXT;break;
+//        case KEY_FIND: text_command("<find>");text_search(cmd);macro_next=KEY_NEXT;break;
+        case KEY_FIND: inline_search();macro_next=KEY_NEXT;break;
         case KEY_WORD: search_id();macro_next=KEY_NEXT;break;
         case KEY_NEXT: text_search(cmd);macro_next=KEY_NEXT;break;
         case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
@@ -1307,6 +1340,20 @@ void text_select() {
     }   
 }
 
+void text_back_word() {
+    int i=text_gap;
+    while (i>0 && text[i-1]!=EOL && text[i-1]!=' ') i--;
+    while (i>0 && text[i-1]==' ') i--;
+    text_move(i);
+}
+
+void text_kill_word() {
+    while (text_gap>0 && text[text_gap-1]==' ') 
+        text_backspace();
+    while (text_gap>0 && text[text_gap-1]!=' ' && text[text_gap-1]!=EOL)
+        text_backspace();
+}
+
 // save pos on any modification...
 int mainloop() {
     int c=0;
@@ -1320,6 +1367,8 @@ int mainloop() {
         c = text_getchar();
         if (move_command(c)) continue;
         switch (c) {
+            case KEY_KWORD : text_kill_word();break;
+            case KEY_BWORD : text_back_word();break;
             case KEY_ESC : restore_pos();break;
             case KEY_EOL : text_putchar(EOL);
             case KEY_MARK: text_select();b=0;break;
@@ -1358,6 +1407,57 @@ int mainloop() {
 void terminate(int param) {
     reset_input_mode();
     exit(1);
+}
+
+/******************************************************************/
+/******************************************************************/
+
+void text_backup() 
+{
+    // Open the input file
+    int read = open(filename, O_RDONLY);
+    
+    // Stat the input file to obtain its size
+    struct stat s;
+    fstat(read, &s);
+    
+    // Open the output file for writing, 
+    // with the same permissions as the source file
+    
+    int write = open(savename, O_WRONLY | O_CREAT, s.st_mode);
+    
+    // Blast the bytes from one file to the other
+    off_t off = 0;
+    sendfile(write, read, &off, s.st_size);
+    
+    // Close up
+    close(read);
+    close(write);    
+}
+
+int text_save() 
+{
+    // flush swap so we are safe if anything happen
+    swap_stream.flush();
+
+    // open file and write new content
+    ofstream s;
+    s.open(filename,ios_base::trunc);
+    fi (text_end) {
+        // jump gap if needed
+        if (i==text_gap) i=text_restart;
+
+        // convert to utf-8
+        int temp = text[i];
+        do {
+            s.put(temp);
+            temp>>=8;
+        } while (temp);
+    }
+    s.close();
+
+    text_message="File saved";
+    text_saved=1;
 }
 
 int open_file() {
@@ -1520,7 +1620,7 @@ int main(int argc, char **argv)
     
 // don't work all the time ??
     if (text_saved==0)
-        cout << "The file was not saved." << endl;
+        cout << "The file was not saved" << endl;
     cout.flush();
 
     exit(0);

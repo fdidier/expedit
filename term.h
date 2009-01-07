@@ -75,7 +75,7 @@ void term_putchar(int c, int color=0);
 #define KEY_TAB         CTRL('I')
 #define KEY_BACKSPACE   CTRL('H')
 #define KEY_ENTER       CTRL('M')
-#define KEY_EOL         CTRL('J')
+#define KEY_EOL         CTRL('J') // We can use this one
 
 // What would be nice to use
 // and their replacement for now
@@ -85,19 +85,22 @@ void term_putchar(int c, int color=0);
 #define CONTROL_M       CTRL(']')
 
 #define KEY_DELETE      CTRL('D')
-#define KEY_INSERT      CTRL('\\') 
+#define KEY_INSERT      132         //CTRL('\\') 
 
-// used for run length coding
+// used for run length coding ??
 #define KEY_NULL        CTRL('@')
 
+// to screen (used internaly to make a pos
+#define KEY_DISP        CTRL('\\')
+
 // not implemented yet
-#define KEY_MACRO       CTRL('A')
+#define KEY_MACRO       CTRL('Z')
 
 // arrow key
-#define KEY_DOWN        CTRL('K')
-#define KEY_UP          CONTROL_I
-#define KEY_LEFT        CONTROL_J
-#define KEY_RIGHT       CTRL('L')
+#define KEY_DOWN        128
+#define KEY_UP          129
+#define KEY_LEFT        130
+#define KEY_RIGHT       131
 
 // goto, 
 // TODO: add flavour to go to begin/end of text
@@ -112,11 +115,11 @@ void term_putchar(int c, int color=0);
 #define KEY_PREV        CTRL('P')
 
 #define KEY_END         CTRL('E')
-#define KEY_BEGIN       CTRL('B')
+#define KEY_BEGIN       CTRL('A')
 
 #define KEY_OLINE       CTRL('O')
 
-#define KEY_MARK        CONTROL_M
+#define KEY_MARK        CTRL('Y')
 
 #define KEY_DLINE       CTRL('X')
 #define KEY_YLINE       CTRL('C') 
@@ -129,10 +132,10 @@ void term_putchar(int c, int color=0);
 #define KEY_REDO        CTRL('R') 
 #define KEY_TILL        CTRL('T')
 
-#define KEY_JUSTIFY     CTRL('Y')
+#define KEY_KWORD       CTRL('K')
+#define KEY_BWORD       CTRL('B')
 
-// to screen (used internaly to make a pos
-#define KEY_DISP        CTRL('Z')
+#define KEY_JUSTIFY     CTRL('L')
 
 // special commands
 // first byte is null
