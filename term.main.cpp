@@ -9,7 +9,6 @@ int main (void)
         unsigned char c;
             
         term_init();
-        SETMOUSE;
 
         while (1)
          {
@@ -18,14 +17,15 @@ int main (void)
              break;
            if (c == CTRL('Q'))
              break;
-			if (c=='t') {
-				TITLE("fred");
-			} else;
-		   if (c=='p') {GETSEL;} else
-		   if (c=='a') {SETSEL("yo")} else
+            if (c=='t') {
+                TITLE("fred");
+            } else;
+           if (c=='p') {GETSEL;} else
+           if (c=='a') {SETSEL("yo")} else
            term_putchar(c);
            fflush(stdout);
          }
-        NOMOUSE;
+         
+        reset_input_mode();
         return EXIT_SUCCESS;
 }

@@ -7,8 +7,6 @@
 #include <stdlib.h>
 #include <termios.h>
 
-//#define INISEQ    printf("\e[?1048h\e[?1047h\e[H");
-//#define ENDSEQ    printf("\e[?1047l\e[?1048l");
 #define INISEQ    printf("\e[?1049h");
 #define ENDSEQ    printf("\e[?1049l");
 
@@ -138,22 +136,28 @@ int  tilde_escape_sequence(char c)
         return KEY_ESC;
 }
 
+// **********************
+// mouse stuff
+// **********************
+vector<mevent> mevent_stack;
+
 int mouse_sequence() {
     uchar button,x,y;
     if (!read(STDIN_FILENO, &button, 1)) return KEY_ESC;
     if (!read(STDIN_FILENO, &x, 1)) return KEY_ESC;
     if (!read(STDIN_FILENO, &y, 1)) return KEY_ESC;
-    if (button=='`') return WHEEL_UP; // wheel up
-    if (button=='a') return WHEEL_DOWN; // wheel down
-    if (button=='!') { // mid
-        GETSEL;
-        return MOUSE_1;
-    } else if (button=='\"') {
-        SETSEL("fred");
-        return MOUSE_2;
-    }
+    
+    mevent event;
+    
+    // 0 based from top left corner
+    event.x = x - 31;
+    event.y = y - 31;
+    
+    // mouse button
+    event.button = button - 32;
 
-    return KEY_ESC;
+    mevent_stack.pb(event);
+    return MOUSE_EVENT;
 }
 
 int escape_sequence()

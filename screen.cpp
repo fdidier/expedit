@@ -672,6 +672,8 @@ void screen_ol() {
     else opt_line=1;
 }
 
+string debug;
+
 int force = -1;
 vector<int> buffer;
 int screen_getchar() {
@@ -682,6 +684,10 @@ int screen_getchar() {
         return c;
     }
 
+    if (!debug.empty()) {
+        text_message = debug;
+        debug.clear();
+    }
     // refresh screen
     if (force>=0) {
         screen_redraw(force);
@@ -695,14 +701,23 @@ int screen_getchar() {
         if (c==KEY_DISP) {
             screen_ol();
             screen_redraw();
-        } else if (c==WHEEL_UP) {
-            fi(4) buffer.pb(KEY_UP);
-            c = KEY_UP;
-            break;
-        } else if (c==WHEEL_DOWN) {
-            fi(4) buffer.pb(KEY_DOWN);
-            c = KEY_DOWN;
-            break;
+        } else if (c==MOUSE_EVENT) {
+            mevent e = mevent_stack[mevent_stack.sz-1];
+            mevent_stack.erase(mevent_stack.end()-1);
+            SS yo;
+            yo << e.x << " " << e.y << " " << e.button;
+            debug=yo.str();
+            if (e.button==WHEEL_UP) {
+                fi(4) buffer.pb(KEY_UP);
+                c = KEY_UP;
+                break;
+            }
+            if (e.button==WHEEL_DOWN) {
+                fi(4) buffer.pb(KEY_DOWN);
+                c = KEY_DOWN;
+                break;
+            }
+            return KEY_ESC;
         } else if (c==PAGE_UP) {
             if (screen_real_i==text_l) continue;
             if (screen_real_i != screen_lines-2) {

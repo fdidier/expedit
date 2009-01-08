@@ -18,6 +18,15 @@ void term_putchar(int c, int color=0);
 #define COMMENTS_BIT       (1 << 16)
 #define SELECTION_BIT      (1 << 17)
 
+/* MOUSE stuff */
+
+typedef struct _mevent {
+    int x;
+    int y;
+    int button;
+} mevent;
+
+extern vector<mevent> mevent_stack;
 
 /* Escape sequence for xterm */
 
@@ -65,7 +74,15 @@ void term_putchar(int c, int color=0);
 #define SET_BG_COLOR(a) printf("\e[4%im",a);
 #define SET_FG_COLOR(a) printf("\e[3%im",a);
 
-// Command definition
+// Commands definition
+
+// Design :
+// the editor interpret a string of int
+// 0->31        control commands
+// 32->127      normal ascii char, interpreted as if
+// 128->255     extended commands
+// higher       used for unicode char...
+//
 
 // Control macro
 #define CTRL(c)         ((c) & 0x1F)
@@ -95,12 +112,6 @@ void term_putchar(int c, int color=0);
 
 // not implemented yet
 #define KEY_MACRO       CTRL('Z')
-
-// arrow key
-#define KEY_DOWN        128
-#define KEY_UP          129
-#define KEY_LEFT        130
-#define KEY_RIGHT       131
 
 // goto, 
 // TODO: add flavour to go to begin/end of text
@@ -137,12 +148,25 @@ void term_putchar(int c, int color=0);
 
 #define KEY_JUSTIFY     CTRL('L')
 
-// special commands
-// first byte is null
 
-#define WHEEL_UP        (1 << 8)
-#define WHEEL_DOWN      (2 << 8)
-#define MOUSE_1         (3 << 8)
-#define MOUSE_2         (4 << 8)
-#define PAGE_UP         (5 << 8)
-#define PAGE_DOWN       (6 << 8)
+// special commands
+
+// arrow key
+#define KEY_DOWN        128
+#define KEY_UP          129
+#define KEY_LEFT        130
+#define KEY_RIGHT       131
+
+// pgup/down
+#define PAGE_UP         136
+#define PAGE_DOWN       137
+
+#define MOUSE_EVENT     132
+
+// xterm button code
+#define MOUSE_R         0
+#define MOUSE_L         1
+#define MOUSE_M         2
+#define MOUSE_RELEASE   3
+#define WHEEL_UP        64
+#define WHEEL_DOWN      65
