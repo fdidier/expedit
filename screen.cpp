@@ -429,10 +429,13 @@ void screen_highlight()
             if (yo[i][j]==EOL) break;
             
             char c=yo[i][j];
-            if (first)
-            if (isspecial(c) && c!='{' && c!='}' && c!='[' && c!=']' && c!='(' && c!=')') 
-                blue=1;
-            first=0;    
+            if (first) {
+                if (c==' ') continue;
+                if (isspecial(c) && c!='{' && c!='}' && c!='[' 
+                                 && c!=']' && c!='(' && c!=')') 
+                    blue=1;
+                first=0;    
+            }
             if (blue)
                 color_wanted[i][j] = MAGENTA; 
 //            else color_wanted[i][j] = WHITE;

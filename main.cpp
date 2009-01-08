@@ -681,10 +681,86 @@ void open_line_before()
     for (int j=0; j<pos; j++) text_putchar(' ');
 }
 
-/******************************************************************/
-// Completion
-// todo : search in other direction when no match
-/******************************************************************/
+//*************************************************
+//** Internal search functions
+//*************************************************
+
+// check if string [s] appears at position [i] in [text]
+// return 0 if not or the position just after the end if yes
+// treat whitespace at begining/end of [s] in a special way
+int match(vector<int> &s, int i) 
+{
+    int j=0;
+    if (s.sz==0) return 0;
+    
+    // space at begining
+    if (s[0]==' ') {
+        int t=i;
+        if (t>text_gap && t<=text_restart) t=text_gap-1;
+        if (t>0 && isletter(text[t-1])) return 0;
+        j=1;
+    }
+    
+    // space at the end;
+    int size = s.sz;
+    if (s[size-1]==' ') size--;
+    if (size==0) return 0;
+    
+    // match 
+    if (i<0) return 0;
+    while(j<size && i<text_end) {
+        if (i>=text_gap && i<text_restart) i=text_restart;
+        if (s[j]==text[i]) {
+            i++;
+            j++;
+        } else {
+            return 0;
+        }
+    }
+    if (i==text_end) return 0;
+    
+    // space at the end
+    if (j<s.sz && isletter(text[i])) return 0;
+    
+    // return correct pos
+    return i;
+}
+
+// search backward for [s] in [text], starting just before [i]
+// return the position at the beginning of the match
+// or -1 if no match.
+int search_prev(vector<int> &s, int i, int limit=0) 
+{
+    limit=max(0,limit);
+    if (i>text_end) return -1;
+    while (i>limit) {
+        i--;
+        if (i>=text_gap && i<text_restart) i=text_gap-1;
+        if (match(s,i)) 
+            return i;
+    }
+    return -1;
+}
+
+// search forward for [s] in [text], starting at [i]
+// return the position just after the match
+// or -1 if no match.
+int search_next(vector<int> &s, int i, int limit=text_end) 
+{
+    limit=min(text_end,limit);
+    if (i<0) return -1;
+    while (i<limit) {
+        if (i>=text_gap && i<text_restart) i=text_restart;
+        int t=match(s,i);
+        if (t) return t;
+        i++;
+    }
+    return -1;
+}
+
+//******************************************************************
+//** Completion
+//******************************************************************
 
 // dictionnary
 // so we do not propose twice the same completion !
@@ -694,104 +770,206 @@ set< vector<int> > possibilities;
 // I think this is cool
 map< vector<int> , vector<int> > last_completions;
 
-// for completion ...
-vector<int> search_comp(vector<int> c, int &i) 
-{
-    vector<int> res;
-    i--;
-    do {
-        while (i>=0 && isletter(text[i])) 
-            i--;
-        int a = i+1;
-        int b = 0;
-        while (text[a] == c[b]) { 
-            a++;
-            b++;
-            if (b>= c.sz) { 
-                if (c.sz>0 && !isletter(c[c.sz-1])) {
-                    while (text[a]==' ') {
-                        res.pb(text[a]);
-                        a++;
-                    }
-                }
-                while (isletter(text[a])) {
-                    res.pb(text[a]);
-                    a++;
-                }
-                if (possibilities.find(res)!=possibilities.end()) {
-                    res.clear();
-                }
-                if (!res.empty()) 
-                    return res;
-                break;
-            }
-        }
-        i--;
-    } while (i>=0);
-    return res;
-}
-
+// Interface function for the completion
+// return the completion string : not needed for now.
 vector<int> text_complete() 
 {
     undo_flush();
     possibilities.clear();
-    int i=text_gap-1;
     vector<int> begin;
     vector<int> end;
+    possibilities.insert(end);
     
-    int white=0;
-//    if (i>=0 && !isletter(text[i])) white=1;
-
-//  if previous white, do intelligent stuff
-//    while (i>=0 && !isletter(text[i]) && text[i]!=EOL) {
-//        begin = text[i] + begin;
-//        i--;
-//    }
+//  find begining of current word    
+    int i=text_gap-1;
     while (i>=0 && isletter(text[i])) i--;
-    
-    int temp=i+1;
-    while (temp<text_gap) {
-        begin.pb(text[temp]);
-        temp++;
-    }
-    
-//  if (i>=0 && text[i]==EOL) begin = EOL+begin;
-    int pos=i;
-    if (i<0) pos=i+1;
+    i++;
 
-    char c=KEY_TAB;    
+//  not after a word? return.
+    if (i==text_gap) return end;
+    
+//  [pos] always corresponds to the beginning of the last match 
+    int pos=i;
+    
+//  compute [begin] (that is the search pattern)
+//  put white space first so we don't match partial word.
+    begin.pb(' ');
+    while (i<text_gap) {
+        begin.pb(text[i]);
+        i++;
+    }
+
 //  look first in the map
+    int c = KEY_TAB;
     if (last_completions.find(begin)!=last_completions.end()) {
         end = last_completions[begin];
         possibilities.insert(end);
         fi (end.sz) text_putchar(end[i]);
-        c=text_getchar();
+        c = text_getchar();
     }
         
+//  first search backward
+    int backward=1;    
+
 //  No match or user not happy,
 //  look in the text
-    while (c==KEY_TAB) {
+    while (c==KEY_TAB) 
+    {
+        // remove current completion proposal
         if (end.sz>0) {
-            fi (end.sz) 
-                if (isok(end[i])) 
-                    text_backspace();
+            fi (end.sz) text_backspace();
         }
-        if (c==KEY_TAB) {
-            end=search_comp(begin,pos);
-            if (end.sz==0) return end;
-            possibilities.insert(end);
-            fi (end.sz) text_putchar(end[i]);
-            c=text_getchar();
-        }
+        
+        // compute end
+        // use possibilities to not propose the same thing twice
+        do {
+            end.clear();
+            if (backward) {
+                pos = search_prev(begin, pos);
+                if (pos>=0) {            
+                    int i=pos + begin.sz-1;
+                    while (isletter(text[i]) && i<text_gap) {
+                        end.pb(text[i]);
+                        i++;
+                    }
+                } else {
+                    backward = 0;
+                    pos = text_restart;
+                }
+            } else {
+                // pos is not at the beginning anymore,
+                // but no problem
+                pos = search_next(begin, pos);
+                if (pos>=0) {
+                    int i=pos;
+                    while (isletter(text[i]) && i<text_end) {
+                        end.pb(text[i]);
+                        i++;
+                    }
+                } else {
+                    // no more match,
+                    // quit the completion functions
+                    return end;
+                }
+            }
+        } while (possibilities.find(end)!=possibilities.end());
+        
+        // use current end,
+        possibilities.insert(end);
+        fi (end.sz) text_putchar(end[i]);
+        
+        c = text_getchar();
     }
     replay=c;
     
-//  Save completion in map only if normal one
-    if (!end.empty() && !white) 
+    // save completed text in map
+    // except if it is empty
+    if (!end.empty()) 
         last_completions[begin]=end;
     
     return end;
 }
+
+//******************************************
+//** user search functions
+//******************************************
+
+// Pattern is the current search pattern
+// search_highlight is not used for now
+vector<int> pattern;
+int search_highlight=0;
+
+// search next occurrence of [pattern] from text_restart
+int text_search_next() 
+{
+    int t = search_next(pattern,text_restart);
+    if (t>0)  text_move(t);
+    else {
+        text_message = "search restarted on top";
+        t = search_next(pattern,0);
+        if (t>0) text_move(t);
+        else {
+            text_message = "word not found";
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// search previous occurrence of [pattern] from text_gap
+int text_search_prev() 
+{
+    int t = search_prev(pattern,text_gap);
+    if (t>=0)  text_move(t);
+    else {
+        text_message = "search restarted on bottom";
+        t = search_prev(pattern,text_end-2);
+        if (t>=0) text_move(t);
+        else {
+            text_message = "word not found";
+            return 0;
+        }
+    }
+    return 1;
+}
+
+// Let the user enter a new pattern
+void text_new_search() 
+{
+    pattern.clear();
+    while (1) {
+        if (pattern.empty()) {
+            text_message="<find>";
+        } else {
+            text_message.clear();
+            fi (pattern.sz) text_message.pb(pattern[i]);
+        }
+        int c = text_getchar();
+        if (isprint(c)) {
+            pattern.pb(c);
+            continue;
+        }
+        if (c==KEY_BACKSPACE && !pattern.empty()) {
+            pattern.erase(pattern.end()-1);
+            continue;
+        }
+        if (c==KEY_TAB) {
+            continue;
+        }
+        if (c==KEY_ENTER) {
+            text_search_next();
+            break;
+        }
+        replay = c;
+        break;
+    }
+}
+
+// set pattern to the identificator under the cursor
+// and search for it.
+void search_id() 
+{
+    pattern.clear();
+    pattern.pb(' ');
+    int i=text_gap;
+    while (i>0 && isletter(text[i-1])) i--;
+    while (i<text_gap) {
+        pattern.pb(text[i]);
+        i++;
+    }
+    i = text_restart;
+    while (i<text_end && isletter(text[i])) {
+        pattern.pb(text[i]);
+        i++;
+    }
+    pattern.pb(' ');
+    
+    // search for it
+    text_search_next();
+}
+
+/******************************************************************/
+/******************************************************************/
 
 int insert() {
     inserted.clear();
@@ -837,221 +1015,6 @@ int insert() {
         break;
     };
 }
-
-/*********************/
-/* textcommand stuff */
-/*********************/
-
-string cmd;
-
-int search_prev(string c, int i, int limit=0) 
-{
-    int j=c.sz-1;
-    limit=max(0,limit);
-    if (c.sz == 0) return -1; 
-    if (i>text_end) return -1;
-    if (i==(text_end-1) && c[j]==' ') j--; 
-    while (i>limit) {
-        if (i>=text_gap && i<text_restart) 
-            i=text_gap;
-        if (text[i] == c[j] || (c[j]==' ' && !isletter(text[i]))) { 
-            j--;
-            if (j<0) 
-                return i;
-        } else {
-            i = i+(c.sz-1-j);
-            j = c.sz-1;
-        }
-        i--;
-    }
-    return -1;
-}
-
-int search_next(string c, int i, int limit=text_end) 
-{
-    int j=0;
-    limit=min(text_end,limit);
-    if (c.sz ==0) return -1;
-    if (i<0) return -1;
-    if (i==0 && c[0]==' ') j=1;
-    while (i<limit) {
-        if (i>=text_gap && i<text_restart) 
-            i=text_restart;
-        if (text[i] == c[j] || (c[j]==' ' && !isletter(text[i]))) { 
-            j++;
-            if (j>= c.sz) 
-                return i+1;
-        } else {
-            i = i-j;
-            j = 0;
-        }
-        i++;
-    }
-    return -1;
-}
-
-int text_search(string s) 
-{
-    int t = search_next(s,text_restart);
-    if (t>0)  text_move(t);
-    else {
-        text_message = "search restarted on top";
-        t = search_next(s,0);
-        if (t>0) text_move(t);
-        else {
-            text_message = "word not found";
-            return 0;
-        }
-    }
-    return 1;
-}
-
-int text_search_back(string s) 
-{
-    int t = search_prev(s,text_gap);
-    if (t>=0)  text_move(t);
-    else {
-        text_message = "search restarted on bottom";
-        t = search_prev(s,text_end-2);
-        if (t>=0) text_move(t);
-        else {
-            text_message = "word not found";
-            return 0;
-        }
-    }
-    return 1;
-}
-
-int search_highlight=0;
-
-void inline_search() {
-    cmd.clear();
-    int begin = text_gap;
-    while (1) {
-        if (cmd.empty()) {
-            text_message="<find>";
-            text_absolute_move(begin);
-        } else {
-            text_message=cmd;
-            int t=search_next(cmd,text_real_position(begin));
-            if (t>0)  
-                text_move(t);
-            else {
-                text_message = cmd + " (restarted on top)";
-                t = search_next(cmd,0);
-                if (t>0) 
-                    text_move(t);
-                else {
-                    text_message = cmd + " (not found)";
-                    cmd.erase(cmd.end()-1);
-                }
-            }
-        }
-        search_highlight = cmd.sz;
-        int c = text_getchar();
-        if (isprint(c)) {
-            cmd.pb(uchar(c));
-            continue;
-        }
-        if (c==KEY_BACKSPACE && !cmd.empty()) {
-            cmd.erase(cmd.end()-1);
-            continue;
-        }
-        if (c==KEY_TAB) {
-            while (isletter(text[text_restart])) {
-                cmd.pb(text[text_restart]);
-                text_move(text_restart+1);
-            }
-            continue;
-        }
-        if (c==KEY_ENTER) {
-            break;
-        }
-        replay = c;
-        break;
-    }
-    search_highlight=0;
-}
-
-vector<string> history;
-void text_command(string prompt) {
-    cmd.clear();
-    int c;
-    string current;
-    int size=history.size();
-    int modulo=size+1;
-    int index=size;
-    while (1) {
-        if (cmd.empty()) {
-            text_message=prompt;
-        } else {
-            text_message=cmd;
-        }
-        c=text_getchar();
-        if (isprint(c)) {
-            cmd.pb(uchar(c));
-            current=cmd;
-            continue;
-        }
-        if (c==KEY_BACKSPACE) {
-            while (!cmd.empty() && !isok(cmd[cmd.sz-1]))
-                cmd.erase(cmd.end()-1);
-            if (cmd.empty()) return;
-            cmd.erase(cmd.end()-1);
-            current=cmd;
-            continue;
-        }
-        if (c==KEY_UP) {
-            index = (index+modulo-1) % modulo;
-            if (index<size)
-                cmd = history[index];
-            else cmd=current;
-            continue;
-        }
-        if (c==KEY_DOWN) {
-            index = (index + 1) % modulo;
-            if (index<size) 
-                cmd = history[index];
-            else cmd=current;
-            continue;
-        }
-        if (c==KEY_ENTER) {
-            // save in history.
-            // no duplicate.
-            int i=0;
-            for (;i<history.sz; i++) 
-                if (history[i]==cmd) break;
-            if (i<history.sz) {
-                for (;i+1<history.sz; i++)
-                    history[i]=history[i+1];    
-                history[history.sz-1]=cmd;
-            } else 
-                history.pb(cmd);
-            return;
-        }
-        replay = c;
-        break;
-    }
-}
-
-void search_id() {
-    cmd.clear();
-    cmd.pb(' ');
-    int i=text_gap;
-    while (i>0 && isletter(text[i-1])) i--;
-    while (i<text_gap) {
-        cmd.pb(text[i]);
-        i++;
-    }
-    i = text_restart;
-    while (i<text_end && isletter(text[i])) {
-        cmd.pb(text[i]);
-        i++;
-    }
-    cmd.pb(' ');
-    if (text_search(cmd)) text_move(text_gap-1);
-}
-
 
 /******************************************************************/
 /******************************************************************/
@@ -1183,8 +1146,8 @@ int macro_change_line() {
     switch (macro_next) {
         case KEY_UP: text_up();break;
         case KEY_DOWN: text_down();break;
-        case KEY_NEXT: if (!text_search(cmd)) return 0;break;
-        case KEY_PREV: if (!text_search_back(cmd)) return 0;break;
+        case KEY_NEXT: if (!text_search_next()) return 0;break;
+        case KEY_PREV: if (!text_search_prev()) return 0;break;
     }
     return 1;
 }
@@ -1213,7 +1176,7 @@ void replace() {
     // PB : this change when we replace stuff !!
     int limit=text_gap;
     int old=0;
-    while (text_search(cmd)) {
+    while (text_search_next()) {
         i++;
         if (text_gap>=limit && (macro_end<limit || macro_end>=text_gap)) break;
         old=text_gap;
@@ -1306,11 +1269,11 @@ int move_command(char c)
         case KEY_END: text_move(next_eol());break;
         case KEY_LEFT: text_move(text_gap-1);break;
         case KEY_RIGHT: text_move(text_restart+1);break;
-//        case KEY_FIND: text_command("<find>");text_search(cmd);macro_next=KEY_NEXT;break;
-        case KEY_FIND: inline_search();macro_next=KEY_NEXT;break;
+        case KEY_FIND: text_new_search();macro_next=KEY_NEXT;break;
+//        case KEY_FIND: inline_search();macro_next=KEY_NEXT;break;
         case KEY_WORD: search_id();macro_next=KEY_NEXT;break;
-        case KEY_NEXT: text_search(cmd);macro_next=KEY_NEXT;break;
-        case KEY_PREV: text_search_back(cmd);macro_next=KEY_PREV;break;
+        case KEY_NEXT: text_search_next();macro_next=KEY_NEXT;break;
+        case KEY_PREV: text_search_prev();macro_next=KEY_PREV;break;
         default : return 0;
     }
     base_pos = compute_pos();
