@@ -21,6 +21,8 @@ uint     **color_wanted;
 uint     screen_wanted_i;
 uint     screen_wanted_j;
 
+uint     first_line;
+
 /* Other variables */
 int screen_scroll_hint;
 
@@ -215,21 +217,21 @@ void screen_make_it_real()
 // Function to call when the real screen is equal to the wanted one 
 void screen_done() 
 {
-// put the cursor as wanted 
+    // put the cursor as wanted 
     screen_move_curs(screen_wanted_i, screen_wanted_j);
     screen_scroll_hint = 0;
 
-// swap the two screen array to update screen real 
+    // swap the two screen array to update screen real 
     uint **temp = screen_real;
     screen_real = screen_wanted;
     screen_wanted = temp;
     
-// swap the two color arrays
+    // swap the two color arrays
     temp = color_real;
     color_real = color_wanted;
     color_wanted = temp;
 
-// make the change 
+    // make the change 
     fflush(stdout);
 }
 
@@ -237,6 +239,7 @@ void screen_done()
 /*********************************************************************************/
 /* Specific functions for displaying a text structure                            */
 /*********************************************************************************/
+
 int saved_num;
 
 /* Try to set the wanted curs position and the scroll_hint in a clever way */
@@ -271,7 +274,6 @@ void screen_movement_hint()
 
 // if there is line number
 int shift;
-
 int opt_line=1;
 
 void screen_compute_wanted() 
@@ -294,57 +296,56 @@ void screen_compute_wanted()
     }
     
     // compute screen_wanted_j
-    int i = text_gap;
-    int l = 0;
-    while (i>0 && text[i-1]!=EOL) { 
-        l++;   
-        i--;
-    }
+    int l = text_gap - text_line_begin(text_l);
     screen_wanted_j = shift + min(l, int(screen_columns-shift-1));
 
-    // find the beginning of the first line.
-    fn (screen_wanted_i) {
-        i--;
-        while (i>0 && text[i-1]!=EOL) i--;
-    }
-
-    // correct if i==0
-    if (i==text_gap) i=text_restart;
+    // first line of the screen
+    first_line = text_l - screen_wanted_i;
 
     // fill the line one by one
-    fn (screen_lines) {
+    fn (screen_lines) 
+    {
+        // pos on screen
         int j=0;
-        int num = text_l - screen_wanted_i + n +1;
-        if (num > text_lines) num=0;
-        while (j<shift) {
-            if (num==0 || j==0) {
-                screen_wanted[n][shift-1-j]= ' ';
-            } else {
-                screen_wanted[n][shift-1-j]= (num%10) +'0';
-                num/=10;
-            }
-            j++;
-        }
-        while (i<text_end && text[i]!=EOL) {
-            if (n==screen_wanted_i) {
-                int pos = i - text_gap;
-                if (pos>0) pos = i - text_restart;
-                pos += screen_wanted_j;
-                if (pos>=shift && pos < screen_columns ) {
-                   screen_wanted[n][j] = text[i];
-                   j++;
+        
+        // start by the line number
+        int num = first_line + n + 1;
+        
+        // display only if lines exist
+        if (num <= text_lines) 
+        {
+            while (j<shift) {
+                if (num==0 || j==0) {
+                    screen_wanted[n][shift-1-j]= ' ';
+                } else {
+                    screen_wanted[n][shift-1-j]= (num%10) +'0';
+                    num/=10;
                 }
-            } else {
-                if (j<screen_columns) {
-                    screen_wanted[n][j] = text[i];
-                    j++;
-                }
+                j++;
             }
-            i++;
+            
+            // beginning of the current line
+            int i = text_line_begin(first_line + n);
             if (i==text_gap) i=text_restart;
-        };
-        i++;
-        if (i==text_gap) i=text_restart;
+            
+            // special case if line is bigger than screen width
+            // only for text_l
+            if (first_line + n == text_l && text_gap>i ) {
+                int pos = text_gap - i;
+                if (pos  >= screen_columns - shift ) 
+                    i = text_gap - (screen_columns - shift-1);            
+            }
+            
+            // display the line
+            while (i<text_end && text[i]!=EOL && j<screen_columns) {
+                screen_wanted[n][j] = text[i];
+                j++;
+                i++;
+                if (i==text_gap) i=text_restart;
+            }
+        }
+
+        // fill the end with white
         screen_wanted[n][j]=EOL;
         while (j+1<screen_columns) {
             screen_wanted[n][j+1]=' ';
@@ -352,6 +353,9 @@ void screen_compute_wanted()
         }
     }
 }
+
+// **************************************************************************
+// **************************************************************************
 
 void display_message() 
 {
@@ -450,82 +454,84 @@ void screen_highlight()
         if (c=='(' || c==')' || c=='{' || c=='}' || c=='[' || c==']') break;
         temp--;
     } while (temp>=0);
-    if (temp<0) return;
-    if (temp!=screen_wanted_j)
-        color_wanted[screen_wanted_i][temp]=RED;
     
-    if (c=='{' || c=='[' || c=='(') {
-        char b=c;
-        char e;
-        if (b=='{') e='}';
-        if (b=='[') e=']';
-        if (b=='(') e=')';
-        int count=0;
-        int i=screen_wanted_i;
-        int j=temp;
-        for(;i<screen_lines;i++) {
-            for(;j<screen_columns;j++) {
-                if (yo[i][j]==b) count++;
-                if (yo[i][j]==e) count--;
-                if (count == 0) {
-                    color_wanted[i][j] = RED;
-                    i=screen_lines;
-                    j=screen_columns;
-                }
-            }
-            j=0;
-        }
-    }
-    if (c=='}' || c==']' || c==')') {
-        char b=c;
-        char e;
-        if (b=='}') e='{';
-        if (b==']') e='[';
-        if (b==')') e='(';
-        int count=0;
-        int i=screen_wanted_i;
-        int j=temp;
-        for(;i>=0;i--) {
-            for(;j>=0;j--) {
-                if (yo[i][j]==b) count++;
-                if (yo[i][j]==e) count--;
-                if (count == 0) {
-                    color_wanted[i][j] = RED;
-                    i=-1;
-                    j=-1;
-                }
-            }
-            j=screen_columns-1;
-        }
-    }    
-    
-    return;
-    
-    fi (screen_lines) {
-        line = 0;
-        for (int j=shift; j<screen_columns; j++) {
-            if (yo[i][j]=='\n') break;
-            if (yo[i][j]=='/' && yo[i][j+1]=='*') bloc=1;
-            if (yo[i][j]=='/' && yo[i][j+1]=='/') line=1;
-            if (bloc || line) {
-                yo[i][j] &= 0xFF;
-                yo[i][j] |= BLUE << 8;
-            }
-            if (j>0 && (yo[i][j-1]&0xFF)=='*' && (yo[i][j]&0xFF)=='/') {
-                if (bloc==0) {
-                    /* opposite direction */
-                    for (int a=0; a<=i; a++)
-                    for (int b=shift;(a==i?b<=j:b<screen_columns);b++) {
-                        if (yo[a][b]==EOL) break;
-                        yo[a][b] &= 0xFF;
-                        yo[a][b] |= BLUE << 8;
+    if (temp>=0) {
+        if (temp!=screen_wanted_j)
+            color_wanted[screen_wanted_i][temp]=RED;
+        
+        if (c=='{' || c=='[' || c=='(') {
+            char b=c;
+            char e;
+            if (b=='{') e='}';
+            if (b=='[') e=']';
+            if (b=='(') e=')';
+            int count=0;
+            int i=screen_wanted_i;
+            int j=temp;
+            for(;i<screen_lines;i++) {
+                for(;j<screen_columns;j++) {
+                    if (yo[i][j]==b) count++;
+                    if (yo[i][j]==e) count--;
+                    if (count == 0) {
+                        color_wanted[i][j] = RED;
+                        i=screen_lines;
+                        j=screen_columns;
                     }
                 }
-                bloc=0;
+                j=0;
             }
         }
+        if (c=='}' || c==']' || c==')') {
+            char b=c;
+            char e;
+            if (b=='}') e='{';
+            if (b==']') e='[';
+            if (b==')') e='(';
+            int count=0;
+            int i=screen_wanted_i;
+            int j=temp;
+            for(;i>=0;i--) {
+                for(;j>=0;j--) {
+                    if (yo[i][j]==b) count++;
+                    if (yo[i][j]==e) count--;
+                    if (count == 0) {
+                        color_wanted[i][j] = RED;
+                        i=-1;
+                        j=-1;
+                    }
+                }
+                j=screen_columns-1;
+            }
+        }    
     }
-    return;
+    
+//    return;
+//    fi (screen_lines) {
+//        line = 0;
+//        for (int j=shift; j<screen_columns; j++) {
+//            if (yo[i][j]=='\n') break;
+//            if (yo[i][j]=='/' && yo[i][j+1]=='*') bloc=1;
+//            if (yo[i][j]=='/' && yo[i][j+1]=='/') line=1;
+//            if (bloc || line) {
+//                yo[i][j] &= 0xFF;
+//                yo[i][j] |= BLUE << 8;
+//            }
+//            if (j>0 && (yo[i][j-1]&0xFF)=='*' && (yo[i][j]&0xFF)=='/') {
+//                if (bloc==0) {
+//                    /* opposite direction */
+//                    for (int a=0; a<=i; a++)
+//                    for (int b=shift;(a==i?b<=j:b<screen_columns);b++) {
+//                        if (yo[a][b]==EOL) break;
+//                        yo[a][b] &= 0xFF;
+//                        yo[a][b] |= BLUE << 8;
+//                    }
+//                }
+//                bloc=0;
+//            }
+//        }
+//    }
+//    return;
+
     /* c keywords */
     fi (screen_lines) {
         int j=0;
@@ -540,18 +546,20 @@ void screen_highlight()
                 word.pb(screen_wanted[i][j]);
                 j++;
             }
-            if (s>0 && screen_wanted[i][s-1]=='#') {
-                /* preprocessor */
-                s--;
-                int color = MAGENTA;
-                while (s<j) {
-                    screen_wanted[i][s] |= color << 8;
-                    s++;
-                }
-            } else if (keyword.find(word) != keyword.end()) {
+//            if (s>0 && screen_wanted[i][s-1]=='#') {
+//                /* preprocessor */
+//                s--;
+//                int color = MAGENTA;
+//                while (s<j) {
+//                    screen_wanted[i][s] |= color << 8;
+//                    s++;
+//                }
+//            } else 
+            if (keyword.find(word) != keyword.end()) {
                 int color = keyword[word];
                 while (s<j) {
-                    screen_wanted[i][s] |= color << 8;
+                    if (color_wanted[i][s] != MAGENTA)
+                        color_wanted[i][s] = color;
                     s++;
                 }
             }

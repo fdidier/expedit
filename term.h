@@ -1,6 +1,3 @@
-/* TODO */
-// fonction pour changer les attributs
-// modif get_char : parser les caractère speciaux et retourner les keysym...
 
 /* terminal function */
 void term_get_size(unsigned int &x, unsigned int &y);
@@ -30,6 +27,8 @@ extern vector<mevent> mevent_stack;
 
 /* Escape sequence for xterm */
 
+#define PASTEMODE       printf("\e[?2004h")
+#define NOPASTEMODE     printf("\e[?2004l")
 #define SETMOUSE        printf("\e[?1002h")
 #define NOMOUSE         printf("\e[?1002l")
 #define GETSEL          printf("\e]52;p;?\007")
@@ -101,8 +100,8 @@ extern vector<mevent> mevent_stack;
 #define CONTROL_J       CTRL('^')
 #define CONTROL_M       CTRL(']')
 
-#define KEY_DELETE      CTRL('D')
-#define KEY_INSERT      132         //CTRL('\\') 
+#define KEY_DELETE      140         //CTRL('D')
+#define KEY_INSERT      141         //CTRL('\\') 
 
 // used for run length coding ??
 #define KEY_NULL        CTRL('@')
@@ -144,6 +143,7 @@ extern vector<mevent> mevent_stack;
 #define KEY_TILL        CTRL('T')
 
 #define KEY_KWORD       CTRL('K')
+#define KEY_DEND        CTRL('D')
 #define KEY_BWORD       CTRL('B')
 
 #define KEY_JUSTIFY     CTRL('L')
@@ -161,6 +161,8 @@ extern vector<mevent> mevent_stack;
 #define PAGE_UP         136
 #define PAGE_DOWN       137
 
+#define KEY_AI          CONTROL_M
+
 #define MOUSE_EVENT     132
 
 // xterm button code
@@ -170,3 +172,10 @@ extern vector<mevent> mevent_stack;
 #define MOUSE_RELEASE   3
 #define WHEEL_UP        64
 #define WHEEL_DOWN      65
+
+//Function keys
+#define KEY_F1       KEY_DISP
+#define KEY_F2       KEY_AI
+#define KEY_F3       KEY_ESC
+#define KEY_F4       KEY_ESC
+

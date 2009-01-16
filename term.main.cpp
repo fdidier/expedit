@@ -20,8 +20,8 @@ int main (void)
             if (c=='t') {
                 TITLE("fred");
             } else;
-           if (c=='p') {GETSEL;} else
-           if (c=='a') {SETSEL("yo")} else
+//           if (c=='p') {GETSEL;} else
+//           if (c=='a') {SETSEL("yo")} else
            term_putchar(c);
            fflush(stdout);
          }

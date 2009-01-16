@@ -49,11 +49,6 @@ int undo_pos=-1;
 int undo_mrk=-1;
 int undo_last;
 
-void edit_text() {
-    text_modif++;
-    text_saved=0;
-}
-
 // ***************************
 // undo stuff.
 // ***************************
@@ -111,69 +106,147 @@ void undo_start() {
     undo_last=-1;
 }
 
+// **************************************************************
+// **************************************************************
+// Cache a few line begin
+
+#define  cache_size  50
+int cache_num[cache_size]={0};
+int cache_pos[cache_size]={0};
+
+// add a line to the cache
+void cache_add(int num, int pos) 
+{
+    int i = num % cache_size;
+    cache_num[i]=num;
+    cache_pos[i]=pos;
+}
+
+// update cache on text_gap move
+void cache_move(int old_line, int new_line) 
+{
+    fi (cache_size) {
+        int l = cache_num[i];
+        if (l>old_line && l<= new_line) 
+            cache_pos[i] -= (text_restart - text_gap);
+        if (l>new_line && l<= old_line) 
+            cache_pos[i] += (text_restart - text_gap);
+    }
+}
+
+// return line begin if cached
+// -1 otherwise
+int cache_search(int num) {
+    int i = num % cache_size;
+    if (cache_num[i] == num) {
+//        SS yo;
+//        yo << "cached " << i << " " << cache_num[i] << " " << cache_pos[i];
+//        text_message = yo.str(); 
+        return cache_pos[i];
+    }
+    return -1;
+}
+
+// **************************************************************
+// **************************************************************
+
+// Only functions that modify the text !
+// Not most efficient, but fast enough for normal use
+// assertion are not needed
+
+// TODO: line_pos of cached line is correctly modified,
+// but the line are no longer in the good cache cell
+
 void text_add(int c) 
 {
     text_check(1);
-    edit_text();
+    text[text_gap++]=c;
+
     if (c==EOL) {
+        fi (cache_size) {
+            if (cache_num[i]>text_l) 
+                cache_num[i]++;
+        }
         text_l++;
         text_lines++;
+        cache_add(text_l, text_gap);
+        // cache_add(text_l, text_restart);
     }
-    text[text_gap++]=c;
 }
 
-void text_sup() 
+void text_del() 
 {
-    if (text_restart+1>=text.sz) return;
-    edit_text();
-
-    if (text[text_restart]==EOL) 
-        text_lines--;
+    if (text_restart>=text_end) return;
+    
     text_restart++;
+
+    if (text[text_restart]==EOL) {
+        fi (cache_size) {
+            if (cache_num[i]==text_l+1) {
+                cache_num[i]=0;
+                cache_pos[i]=0;
+            }
+            if (cache_num[i]>text_l+1)
+                cache_num[i]--;
+        }
+        text_lines--;
+    }    
+}
+
+void text_back()
+{
+    if (text_gap==0) return;
+    text_gap--;
+
+    if (text[text_gap]==EOL) {    
+        fi (cache_size) {
+            if (cache_num[i]==text_l) {
+                cache_num[i]=0;
+                cache_pos[i]=0;
+            }
+            if (cache_num[i]>text_l)
+                cache_num[i]--;
+        }
+        text_l--;
+        text_lines--;
+    } 
+}
+    
+// ******************************************************
+// same as above but with undo support
+
+void edit_text() {
+    text_modif++;
+    text_saved=0;
 }
 
 void text_putchar(int c) 
 {
-    if (undo_pos == -1 || undo_pos>text_gap) {
-        undo_start();
-    }
-
+    edit_text();
+    
+    if (undo_pos == -1 || undo_pos>text_gap) undo_start();
     text_add(c);
 }
 
 void text_backspace() 
 {
-    if (text_gap==0) return;
-    
+    if (text_gap==0) return;    
     edit_text();
-    if (undo_pos<0) {
-        undo_start();
-    }
-
-    text_gap--;
-
-    if (text[text_gap]==EOL) {
-        text_l--;
-        text_lines--;
-    } 
+    
+    if (undo_pos<0) undo_start();
+    text_back();
 }
 
 
 void text_delete() 
 {
-    if (text_restart+1>=text.sz) return;
-
+    if (text_restart>=text_end) return;
     edit_text();
-    if (undo_pos<text_gap) {
-        undo_start();
-    }
 
+    if (undo_pos<text_gap) undo_start();
     text[undo_pos]=text[text_restart];
-    text_restart++;
     undo_pos++;
-
-    if (text[text_restart-1]==EOL) 
-        text_lines--;
+    text_del();
 }
 
 
@@ -197,6 +270,7 @@ void text_move(int i)
     // we move so save current undo
     undo_flush();
 
+    int old_line = text_l;
     if (i<text_gap) {
         while (text_gap !=i) {
             if (text[text_gap-1]==EOL) text_l--;
@@ -214,6 +288,7 @@ void text_move(int i)
             text_restart++;
         }
     }
+    cache_move(old_line, text_l);
 }
 
 int  text_real_position(int i) {
@@ -235,7 +310,7 @@ void text_apply(struct s_undo op)
             text_add(op.content[i]);
     } else {
         fi (op.content.sz)
-            text_sup();
+            text_del();
     }
 
     if (op.num>=0)
@@ -276,13 +351,8 @@ int text_redo() {
 // **********************************************************
 // **********************************************************
 
-// next_eol/prev_eol/ i-th eol
-// TODO:
-// Cache values to be efficient in case of big lines...
-// Problem is to change them in case of deletion/insertion modif
-// But it should be easy ...
-
 // return index of the next EOL
+// use cache_search(text_l+1) - 1 ?
 int next_eol() 
 {
     int i=text_restart;
@@ -294,74 +364,58 @@ int next_eol()
 // return index just after the previous EOL
 int prev_eol() 
 {
-    int i=text_gap;
+    int i=cache_search(text_l);
+    if (i>=0) return i;
+
+    i=text_gap;
     while (i>0 && text[i-1]!=EOL) 
         i--;
+//    if (i==text_gap) i=text_restart;
+        
+    cache_add(text_l,i);
     return i;
 }
 
-/* Not used exept for goto and pgup/down ... */
 /* return the indice of the begining of the line l 
  * in [0,gap[ [restart,end[*/
 int text_line_begin(int l) 
 {
-    /* text modif */
-    static int previous_l=0;
-    static int previous_p=0;
-    static int previous_mod=0;
-
-    /* keep l in range */
+    // keep l in range 
     l = l % text_lines;
     if (l<0) l+= text_lines;
 
-    /* deal with special case*/
-    if (l==text_l) {
-        int i=text_gap;
-        while ((i>0)&&(text[i-1]!=EOL)) i--;
-        if (i<text_gap) return i;
-        return text_restart;
-    }
-
-    int i,n;
-    if (previous_mod == text_modif && 
-        (l>text_l && previous_l>text_l || 
-         l<text_l && previous_l<text_l) 
-       ) {
-        /* no modif and same side of the text_gap: 
-         * restart from previous pos 
-         */
-        i=previous_p;
-        n=previous_l;
-    } else {
-        /* restart from text_gap */
-        if (l>text_l) i=text_restart;
-        else {
-            i=text_gap;
-            while ((i>0)&&(text[i-1]!=EOL)) i--;
-        }
-        n=text_l;
-    }
-
-    /* find the line searching from the latest position */
-    if (n<=l) {
-        while (n<l) {
-            while (text[i] != EOL) i++;
-            n++;
-            i++;
-        }
-    } else {
-        do {
-            i--;
-            while ((i>0)&&(text[i-1]!=EOL)) i--;
-            n--;
-        } while(l<n);
+    // beginning cached ?    
+    int res = cache_search(l);
+    if (res>=0) return res;    
+    
+    // line num and line begin
+    int n=0;
+    int p=0;
+    
+    // are we looking after text_restart ?
+    if (l>text_l) {
+        n = text_l;
+        p = text_restart;
     }
     
-    previous_p=i;
-    previous_l=l;
-    previous_mod = text_modif;
+    // find closest line before in cache
+    fi (cache_size) {
+        if (cache_num[i] <= l && cache_num[i]>n) {
+            n = cache_num[i];
+            p = cache_pos[i];
+        }
+    }
+
+    // find the line begin
+    while (n<l) {
+        while (text[p] != EOL) p++;
+        n++;
+        p++;
+    }
     
-    return i;
+    // cache result and return
+    cache_add(l,p);
+    return p;
 }
 
 // **********************************************************
@@ -644,8 +698,14 @@ void smart_delete()
     text_delete();
 }
 
+int auto_indent=1;
 void smart_enter() 
 {
+    if (auto_indent==0) {
+        text_putchar(EOL);
+        return;
+    }
+    
     // compute line indent
     // from current position
     int i=prev_eol();
@@ -1330,6 +1390,15 @@ int mainloop() {
         c = text_getchar();
         if (move_command(c)) continue;
         switch (c) {
+            case KEY_AI : 
+                        if (auto_indent) {
+                            text_message="auto indent off";
+                            auto_indent=0;
+                        } else {
+                            text_message="auto indent on";
+                            auto_indent=1;
+                        };
+                        break;         
             case KEY_KWORD : text_kill_word();break;
             case KEY_BWORD : text_back_word();break;
             case KEY_ESC : restore_pos();break;

@@ -31,6 +31,7 @@ void reset_input_mode (void)
 {
         tcsetattr (STDIN_FILENO, TCSANOW, &saved_attributes);
         NOMOUSE;
+        NOPASTEMODE;
         ENDSEQ; 
         fflush(stdout);
 }
@@ -59,6 +60,7 @@ void set_input_mode (void)
 
        INISEQ;
        SETMOUSE;
+       PASTEMODE;
        fflush(stdout);
 }
 
@@ -160,6 +162,20 @@ int mouse_sequence() {
     return MOUSE_EVENT;
 }
 
+int function_keys() {
+    uchar c;
+    if (read (STDIN_FILENO, &c, 1)) {
+        switch (c) {
+            case 'P' : return KEY_F1;
+            case 'Q' : return KEY_F2;
+            case 'R' : return KEY_F3;
+            case 'S' : return KEY_F4;
+            default : return KEY_ESC;
+        }
+    }
+    return KEY_ESC;    
+}
+
 int escape_sequence()
 {
         struct termios tattr;
@@ -174,6 +190,9 @@ int escape_sequence()
         uchar c;
 
         if (read (STDIN_FILENO, &c, 1)) {
+                if (c == 'O') {
+                    a = function_keys();
+                } else
                 if (c == '[') {
                         if (read (STDIN_FILENO, &c, 1)) {
                                 switch (c) {
