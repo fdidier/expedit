@@ -62,6 +62,7 @@ extern int      text_end;
 extern void     text_move(int);
 extern int      text_line_begin(int);
 extern int      text_save();
+extern void     line_goto(int);
     
 extern int      search_highlight;
 extern string   text_highlight;

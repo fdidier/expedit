@@ -152,8 +152,8 @@ int mouse_sequence() {
     mevent event;
     
     // 0 based from top left corner
-    event.x = x - 31;
-    event.y = y - 31;
+    event.x = x - 33;
+    event.y = y - 33;
     
     // mouse button
     event.button = button - 32;

@@ -108,7 +108,7 @@ void undo_start() {
 
 // **************************************************************
 // **************************************************************
-// Cache a few line begin
+// Cache EOL number i
 
 #define  cache_size  50
 int cache_num[cache_size]={0};
@@ -137,6 +137,7 @@ void cache_move(int old_line, int new_line)
 // return line begin if cached
 // -1 otherwise
 int cache_search(int num) {
+    if (num==0) return -1;
     int i = num % cache_size;
     if (cache_num[i] == num) {
 //        SS yo;
@@ -169,29 +170,31 @@ void text_add(int c)
         }
         text_l++;
         text_lines++;
-        cache_add(text_l, text_gap);
-        // cache_add(text_l, text_restart);
+        cache_add(text_l, text_gap-1);
     }
 }
 
 void text_del() 
 {
     if (text_restart>=text_end) return;
-    
-    text_restart++;
 
     if (text[text_restart]==EOL) {
         fi (cache_size) {
+                cache_num[i]=-1;
+                cache_pos[i]=0;
             if (cache_num[i]==text_l+1) {
-                cache_num[i]=0;
+                cache_num[i]=-1;
                 cache_pos[i]=0;
             }
-            if (cache_num[i]>text_l+1)
+            if (cache_num[i]>text_l+1) {
                 cache_num[i]--;
+            }
         }
         text_lines--;
     }    
-}
+    
+    text_restart++;
+} 
 
 void text_back()
 {
@@ -201,11 +204,12 @@ void text_back()
     if (text[text_gap]==EOL) {    
         fi (cache_size) {
             if (cache_num[i]==text_l) {
-                cache_num[i]=0;
+                cache_num[i]=-1;
                 cache_pos[i]=0;
             }
-            if (cache_num[i]>text_l)
+            if (cache_num[i]>text_l) {
                 cache_num[i]--;
+            }
         }
         text_l--;
         text_lines--;
@@ -355,24 +359,27 @@ int text_redo() {
 // use cache_search(text_l+1) - 1 ?
 int next_eol() 
 {
-    int i=text_restart;
+    int i=cache_search(text_l+1);
+    if (i>=0) return i;
+    
+    i=text_restart;
     while (i<text_end && text[i]!=EOL) 
         i++;
     return i;
 }
 
 // return index just after the previous EOL
+// can return text gap ...
 int prev_eol() 
 {
     int i=cache_search(text_l);
-    if (i>=0) return i;
+    if (i>=0) return i+1;
 
     i=text_gap;
     while (i>0 && text[i-1]!=EOL) 
         i--;
-//    if (i==text_gap) i=text_restart;
         
-    cache_add(text_l,i);
+    cache_add(text_l,i-1);
     return i;
 }
 
@@ -386,7 +393,7 @@ int text_line_begin(int l)
 
     // beginning cached ?    
     int res = cache_search(l);
-    if (res>=0) return res;    
+    if (res>=0) return res+1;    
     
     // line num and line begin
     int n=0;
@@ -395,26 +402,29 @@ int text_line_begin(int l)
     // are we looking after text_restart ?
     if (l>text_l) {
         n = text_l;
-        p = text_restart;
-    }
-    
-    // find closest line before in cache
-    fi (cache_size) {
-        if (cache_num[i] <= l && cache_num[i]>n) {
-            n = cache_num[i];
-            p = cache_pos[i];
-        }
-    }
+        p = text_restart;    
 
-    // find the line begin
-    while (n<l) {
-        while (text[p] != EOL) p++;
-        n++;
+        // find the next EOL
+        while (n<l) {
+            while (text[p] != EOL) p++;
+            cache_add(n+1,p);
+            n++;
+            p++;
+        }
+    } else {
+        n = text_l+1;
+        p = text_gap;
+        
+        // find the previous EOL
+        while (n>l) {
+            do {p--;} while (p>=0 && text[p] !=EOL);
+            n--;
+            cache_add(n,p);
+        }
         p++;
     }
     
     // cache result and return
-    cache_add(l,p);
     return p;
 }
 
@@ -686,11 +696,11 @@ void smart_delete()
     }
 
     // deal with end of line
-    if (i+1<text_end && text[i]==EOL) {
+    if (i+1<text_end && text[i]==EOL && text_gap>0 && text[text_gap-1]!=EOL) {
         do {
             text_delete();
             i++;
-        } while (i+1<text_end && text[i]==' ');
+        } while (i+1<text_end && text[i+1]==' ');
         return;
     }
 
