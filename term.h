@@ -62,16 +62,17 @@ extern vector<mevent> mevent_stack;
 #define MAGENTA 5
 #define CYAN    6
 #define WHITE   7
+#define DEFAULT_COLOR 9
 
 #define REVERSE 1<<10
 
 #define NORMAL_COLOR    0
 #define COMMENTS_COLOR  4
 
-#define REVERSE_VIDEO   printf("\e[7m");
-#define NORMAL_VIDEO    printf("\e[0m");
-#define SET_BG_COLOR(a) printf("\e[4%im",a);
-#define SET_FG_COLOR(a) printf("\e[3%im",a);
+#define REVERSE_VIDEO   printf("\e[7m")
+#define NORMAL_VIDEO    printf("\e[0m")
+#define SET_BG_COLOR(a) printf("\e[4%im",a)
+#define SET_FG_COLOR(a) printf("\e[3%im",a)
 
 // Commands definition
 
@@ -91,7 +92,7 @@ extern vector<mevent> mevent_stack;
 #define KEY_TAB         CTRL('I')
 #define KEY_BACKSPACE   CTRL('H')
 #define KEY_ENTER       CTRL('M')
-#define KEY_EOL         CTRL('J') // We can use this one
+// #define KEY_EOL         CTRL('J') // We can use this one
 
 // What would be nice to use
 // and their replacement for now
@@ -100,17 +101,17 @@ extern vector<mevent> mevent_stack;
 #define CONTROL_J       CTRL('^')
 #define CONTROL_M       CTRL(']')
 
-#define KEY_DELETE      140         //CTRL('D')
+#define KEY_DELETE      CTRL('D')
 #define KEY_INSERT      141         //CTRL('\\') 
 
 // used for run length coding ??
-#define KEY_NULL        CTRL('@')
+#define KEY_NULL        200         //CTRL('@')
 
 // to screen (used internaly to make a pos
 #define KEY_DISP        CTRL('\\')
 
 // not implemented yet
-#define KEY_MACRO       CTRL('Z')
+// #define KEY_MACRO       CTRL('Z')
 
 // goto, 
 // TODO: add flavour to go to begin/end of text
@@ -118,8 +119,9 @@ extern vector<mevent> mevent_stack;
 #define KEY_GOTO        CTRL('G')
 
 // search stuff
-#define KEY_WORD        CTRL('W')
-#define KEY_FIND        CTRL('F')
+#define KEY_WORD        CTRL('Y')
+#define KEY_FIND        CTRL('W')
+#define KEY_CASE        CTRL('Z')
 
 #define KEY_NEXT        CTRL('N')
 #define KEY_PREV        CTRL('P')
@@ -129,7 +131,7 @@ extern vector<mevent> mevent_stack;
 
 #define KEY_OLINE       CTRL('O')
 
-#define KEY_MARK        CTRL('Y')
+#define KEY_MARK        CTRL('@')
 
 #define KEY_DLINE       CTRL('X')
 #define KEY_YLINE       CTRL('C') 
@@ -143,10 +145,11 @@ extern vector<mevent> mevent_stack;
 #define KEY_TILL        CTRL('T')
 
 #define KEY_KWORD       CTRL('K')
-#define KEY_DEND        CTRL('D')
+#define KEY_DEND        CTRL('L')
 #define KEY_BWORD       CTRL('B')
+#define KEY_FWORD       CTRL('F')
 
-#define KEY_JUSTIFY     CTRL('L')
+#define KEY_JUSTIFY     CTRL('J')
 
 
 // special commands

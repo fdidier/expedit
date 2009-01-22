@@ -500,13 +500,13 @@ int      swap_index;
  *
  */
 
-int replay=0;
+int replay=-1;
 int pending=0;
 int text_getchar() 
 {
-    if (replay!=0) {
+    if (replay>=0) {
         int c = replay;
-        replay = 0;
+        replay = -1;
         return c;
     }
 
@@ -940,18 +940,58 @@ vector<int> text_complete()
     return end;
 }
 
+// ********************************************************
+
+// Save position and return to it
+// save as well screen state 
+// Not clean when redoing stuff without screen ...
+
+int  saved_gap=-1;
+void save_pos() {
+    saved_gap = text_gap;
+    //screen_save();
+}
+
+void restore_pos() {
+    if (saved_gap<0) return;
+    text_absolute_move(saved_gap);
+   // screen_restore();
+}
+
 //******************************************
 //** user search functions
 //******************************************
 
 // Pattern is the current search pattern
 // search_highlight is not used for now
+vector<int> user_search;
 vector<int> pattern;
 int search_highlight=0;
+
+// get id at current cursor position
+void get_id() 
+{
+    pattern.clear();
+    pattern.pb(' ');
+    int i=text_gap;
+    while (i>0 && isletter(text[i-1])) i--;
+    while (i<text_gap) {
+        pattern.pb(text[i]);
+        i++;
+    }
+    i = text_restart;
+    while (i<text_end && isletter(text[i])) {
+        pattern.pb(text[i]);
+        i++;
+    }
+    pattern.pb(' ');
+}
 
 // search next occurrence of [pattern] from text_restart
 int text_search_next() 
 {
+    if (pattern.empty()) get_id();
+    
     int t = search_next(pattern,text_restart);
     if (t>0)  text_move(t);
     else {
@@ -969,6 +1009,8 @@ int text_search_next()
 // search previous occurrence of [pattern] from text_gap
 int text_search_prev() 
 {
+    if (pattern.empty()) get_id();
+    
     int t = search_prev(pattern,text_gap);
     if (t>=0)  text_move(t);
     else {
@@ -989,7 +1031,7 @@ void text_new_search()
     pattern.clear();
     while (1) {
         if (pattern.empty()) {
-            text_message="<find>";
+            text_message="<search>";
         } else {
             text_message.clear();
             fi (pattern.sz) text_message.pb(pattern[i]);
@@ -1007,9 +1049,11 @@ void text_new_search()
             continue;
         }
         if (c==KEY_ENTER) {
+ //           user_search = pattern;
             text_search_next();
             break;
         }
+ //       pattern = user_search;
         replay = c;
         break;
     }
@@ -1019,22 +1063,12 @@ void text_new_search()
 // and search for it.
 void search_id() 
 {
-    pattern.clear();
-    pattern.pb(' ');
-    int i=text_gap;
-    while (i>0 && isletter(text[i-1])) i--;
-    while (i<text_gap) {
-        pattern.pb(text[i]);
-        i++;
-    }
-    i = text_restart;
-    while (i<text_end && isletter(text[i])) {
-        pattern.pb(text[i]);
-        i++;
-    }
-    pattern.pb(' ');
+    save_pos();
+    get_id();
     
-    // search for it
+    // search for it 
+    // starting at the beginning
+    text_move(0);
     text_search_next();
 }
 
@@ -1282,24 +1316,6 @@ void macro_till() {
 
 // ********************************************************
 
-// Save position and return to it
-// save as well screen state 
-// Not clean when redoing stuff without screen ...
-
-int  saved_gap=-1;
-void save_pos() {
-    saved_gap = text_gap;
-    //screen_save();
-}
-
-void restore_pos() {
-    if (saved_gap<0) return;
-    text_absolute_move(saved_gap);
-   // screen_restore();
-}
-
-// ********************************************************
-
 void yank_select(int mark) {
     int b,e;
     if (mark<text_gap) {
@@ -1375,16 +1391,41 @@ void text_select() {
 
 void text_back_word() {
     int i=text_gap;
+    while (i>0 && (text[i-1]==' ' || text[i-1]==EOL)) i--;
     while (i>0 && text[i-1]!=EOL && text[i-1]!=' ') i--;
-    while (i>0 && text[i-1]==' ') i--;
     text_move(i);
 }
 
-void text_kill_word() {
-    while (text_gap>0 && text[text_gap-1]==' ') 
+void text_next_word() {
+    int i=text_restart;
+    while (i>0 && (text[i]==' ' || text[i]==EOL)) i++;
+    while (i>0 && text[i]!=EOL && text[i]!=' ') i++;
+    text_move(i);
+}
+
+// TODO : regroup kill in selection ??
+void text_kill_word() {    
+    selection.clear();
+    while (text_gap>0 && text[text_gap-1]==' ') {
+        selection.pb(text[text_gap-1]);
         text_backspace();
-    while (text_gap>0 && text[text_gap-1]!=' ' && text[text_gap-1]!=EOL)
+    }
+    while (text_gap>0 && text[text_gap-1]!=' ' && text[text_gap-1]!=EOL) {
+        selection.pb(text[text_gap-1]);
         text_backspace();
+    }
+    reverse(selection.begin(),selection.end());
+}
+
+void text_delete_to_end() {
+    while (text[text_restart]!=EOL) text_delete();
+}
+
+void text_change_case() {
+    int i=text_restart;
+    if (text[i]>='a' && text[i]<='z') text[i]+='A'-'a';
+    else if (text[i]>='A' && text[i]<='Z') text[i]-='A'-'a';
+    text_move(text_restart+1);
 }
 
 // save pos on any modification...
@@ -1409,10 +1450,13 @@ int mainloop() {
                             auto_indent=1;
                         };
                         break;         
+            case KEY_CASE : text_change_case();break;
             case KEY_KWORD : text_kill_word();break;
             case KEY_BWORD : text_back_word();break;
+            case KEY_FWORD : text_next_word();break;
+            case KEY_DEND : text_delete_to_end();break;
             case KEY_ESC : restore_pos();break;
-            case KEY_EOL : text_putchar(EOL);
+//            case KEY_EOL : text_putchar(EOL);
             case KEY_MARK: text_select();b=0;break;
             case KEY_UNDO: text_undo();break;
             case KEY_TILL: macro_till();b=0;save_pos();break;

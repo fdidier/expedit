@@ -393,7 +393,7 @@ void display_message()
     while (j<text_message.sz && j<screen_columns) {
         if (text_message[j]==EOL) text_message[j]='J';
         screen_wanted[screen_lines-1][j] = text_message[j];
-        color_wanted[screen_lines-1][j] = BLACK | REVERSE;
+        color_wanted[screen_lines-1][j] = DEFAULT_COLOR | REVERSE;
         j++;
     }
     screen_wanted[screen_lines-1][j]=EOL;
@@ -417,7 +417,7 @@ void screen_highlight()
     // clear
     fi (screen_lines)
     fj (screen_columns)
-        color_wanted[i][j]=0;
+        color_wanted[i][j]=DEFAULT_COLOR;
 
     // comment 
     int bloc=0; 
@@ -659,19 +659,15 @@ void screen_refresh()
 
 void screen_ppage() {
     if (screen_real_i==text_l) return;
-    if (screen_real_i>=screen_lines-2) {
-        text_move(text_line_begin(text_l -int(screen_lines)+1));
-    }
-    screen_redraw(screen_lines-2);
+    text_move(text_line_begin(first_line));
+    screen_redraw(screen_lines/2);
 }
 
 void screen_npage() {
     if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) 
         return;
-    if (screen_real_i<=1) {
-        text_move(text_line_begin(text_l + int(screen_lines)-1));
-    }
-    screen_redraw(1);
+    text_move(text_line_begin(first_line + screen_lines - 1));
+    screen_redraw(screen_lines/2);
 }
 
 void screen_ol() {
@@ -769,6 +765,7 @@ int screen_getchar() {
             screen_ol();
             screen_redraw();
         } else if (c==PAGE_UP) {
+            screen_ppage();continue;
             if (screen_real_i==text_l) continue;
             if (screen_real_i != screen_lines-2) {
                 screen_redraw(screen_lines-2);
@@ -779,6 +776,7 @@ int screen_getchar() {
             c = KEY_UP;
             break;
         } else if (c==PAGE_DOWN) {
+            screen_npage();continue;
             if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) continue; 
             if (screen_real_i > 1) {
                 screen_redraw(1);
