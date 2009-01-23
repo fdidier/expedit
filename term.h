@@ -27,10 +27,15 @@ extern vector<mevent> mevent_stack;
 
 /* Escape sequence for xterm */
 
+#define SHOW_CURSOR     printf("\e[?25h")
+#define HIDE_CURSOR     printf("\e[?25l")
+
 #define PASTEMODE       printf("\e[?2004h")
 #define NOPASTEMODE     printf("\e[?2004l")
+
 #define SETMOUSE        printf("\e[?1002h")
 #define NOMOUSE         printf("\e[?1002l")
+
 #define GETSEL          printf("\e]52;p;?\007")
 #define SETSEL(a)       printf("\e]52;p;%s\007",a);
 
@@ -69,6 +74,7 @@ extern vector<mevent> mevent_stack;
 #define NORMAL_COLOR    0
 #define COMMENTS_COLOR  4
 
+#define NORMAL_STYLE    printf("\e[m")
 #define REVERSE_VIDEO   printf("\e[7m")
 #define NORMAL_VIDEO    printf("\e[0m")
 #define SET_BG_COLOR(a) printf("\e[4%im",a)
@@ -170,8 +176,8 @@ extern vector<mevent> mevent_stack;
 
 // xterm button code
 #define MOUSE_R         0
-#define MOUSE_L         1
-#define MOUSE_M         2
+#define MOUSE_L         2
+#define MOUSE_M         1
 #define MOUSE_RELEASE   3
 #define WHEEL_UP        64
 #define WHEEL_DOWN      65

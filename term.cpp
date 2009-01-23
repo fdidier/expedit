@@ -32,6 +32,7 @@ void reset_input_mode (void)
         tcsetattr (STDIN_FILENO, TCSANOW, &saved_attributes);
         NOMOUSE;
         NOPASTEMODE;
+        SHOW_CURSOR;
         ENDSEQ; 
         fflush(stdout);
 }
@@ -92,8 +93,8 @@ int shift_escape_sequence() {
         switch(c) {
             case 'A' : return PAGE_UP;
             case 'B' : return PAGE_DOWN;
-            case 'C' : return KEY_END;
-            case 'D' : return KEY_BEGIN;
+            case 'C' : return KEY_FWORD;
+            case 'D' : return KEY_BWORD;
             case 'H' : return KEY_BEGIN;
             case 'F' : return KEY_END;
         }
@@ -317,8 +318,11 @@ void term_putchar(int c, int color)
     }
     
     int col = color & 0xFF;
-    if (fg_color != col && c!=' ') {
-        SET_FG_COLOR(col);
+    if (fg_color != col) {
+        if (color == DEFAULT_COLOR)
+            NORMAL_STYLE;
+        else
+            SET_FG_COLOR(col);
         fg_color = col;
     }
     

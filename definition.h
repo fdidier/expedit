@@ -74,7 +74,7 @@ extern string   text_message;
 //extern void     screen_ppage();
 
 extern void     screen_init();
-extern void     screen_redraw(int hint=-1);
+extern void     screen_redraw();
 extern void     screen_refresh();
 extern uint     screen_lsize;
 extern void     screen_ol(); 

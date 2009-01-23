@@ -15,6 +15,8 @@ uint     **color_real;
 uint     screen_real_i;      /* cursor line in screen */
 uint     screen_real_j;      /* cursor pos  in screen */
 
+int      cursor_hiden=0;
+
 /* screen we want to display */
 uint     **screen_wanted;
 uint     **color_wanted;
@@ -92,12 +94,26 @@ void screen_clear()
 }
 
 /* Change the real cursor position if necessary */
-void screen_move_curs(uint i, uint j) 
+void screen_move_curs(int i, int j) 
 {
     if (screen_real_j == screen_columns+1) {
         screen_real_j = 0;
         screen_real_i ++;
     }
+    
+    if (i<0 || i>=screen_lines) {
+        if (!cursor_hiden) {
+            HIDE_CURSOR;
+            cursor_hiden=1;
+        }
+    } else {
+        if (cursor_hiden) {
+            SHOW_CURSOR;
+            cursor_hiden=0;
+        }
+    }
+    
+    
     if ((screen_real_i != i) || (screen_real_j != j)) {
         MOVE(i, j);
         screen_real_i = i;
@@ -240,51 +256,59 @@ void screen_done()
 /* Specific functions for displaying a text structure                            */
 /*********************************************************************************/
 
-int saved_num;
-
-// Compute the first line displayed according to cursor movement since last time
-// Set the scroll hint accordingly.
-
-void screen_movement_hint() 
-{
-    /* screen line position */
-    int temp = int(text_l)-int(saved_num);
-    temp += int(screen_real_i);
-    saved_num = text_l;
-    
-    /* make the screen wanted cursor line in range and set the scroll_hint */
-    screen_scroll_hint = 0;
-    if (temp<=0) {
-        if (text_l==0) {
-            screen_scroll_hint = temp;
-            screen_wanted_i=0;
-        } else {
-            screen_scroll_hint = temp-1;
-            screen_wanted_i=1;
-        }
-    } else {
-        screen_wanted_i = temp;
-        int top = screen_lines-2;
-        if (screen_wanted_i>top) {
-                screen_scroll_hint = screen_wanted_i - top;
-                screen_wanted_i = top;
-        }
-    }
-    
-    // not enough line ?
-    if (screen_wanted_i > text_l) 
-        screen_wanted_i = text_l;
-
-    // first line of the screen
-    first_line = text_l - screen_wanted_i;
-}
-
-/* compute the wanted view of the screen */
-
 // if there is line number
-int shift;
+int shift=0;
 int opt_line=1;
 
+int saved_first_line;
+
+void screen_set_first_line(int hint) 
+{
+    if (hint<0)  hint=0;
+    if (hint >= text_lines) hint=text_lines-1;
+    first_line = hint;
+}
+
+// Compute the first line displayed according to 
+// cursor movement since last time
+void screen_movement_hint() 
+{
+    // current line if we use the same first line
+    int temp = int(text_l)-int(first_line);
+    
+    if (temp<=0) {
+        if (text_l==0) 
+            first_line=0;
+        else 
+            first_line=text_l-1;
+    }
+    
+    int top = screen_lines-2;
+    if (temp>top) {
+        first_line = int(text_l) - top;
+    }
+}
+
+// Compute scroll hint to speed up display
+void compute_scroll_hint() 
+{
+    screen_scroll_hint = first_line - saved_first_line;
+    saved_first_line = first_line;
+}
+
+
+// compute cursor position according to the first line
+void compute_cursor_pos() 
+{
+    // compute screen_wanted_i
+    screen_wanted_i = text_l - first_line;
+    
+    // compute screen_wanted_j
+    int l = text_gap - text_line_begin(text_l);
+    screen_wanted_j = shift + min(l, int(screen_columns-shift-1));
+}
+
+// compute the wanted view of the screen 
 void screen_compute_wanted() 
 {
     // line numbers
@@ -300,10 +324,8 @@ void screen_compute_wanted()
         shift=0;
     }
     
-    // compute screen_wanted_j
-    int l = text_gap - text_line_begin(text_l);
-    screen_wanted_j = shift + min(l, int(screen_columns-shift-1));
-
+    compute_cursor_pos();
+    
     // fill the line one by one
     fn (screen_lines) 
     {
@@ -449,6 +471,7 @@ void screen_highlight()
     }
     
     /* bracket matching */
+    if (0) {
     int c;
     int temp=screen_wanted_j;
     do {
@@ -506,7 +529,7 @@ void screen_highlight()
             }
         }    
     }
-    
+    }
 //    return;
 //    fi (screen_lines) {
 //        line = 0;
@@ -602,6 +625,7 @@ void screen_init()
         keyword["sizeof"]=YELLOW;
 
         keyword["int"]=GREEN;
+        keyword["uint"]=GREEN;
         keyword["char"]=GREEN;
         keyword["string"]=GREEN;
         keyword["double"]=GREEN;
@@ -620,13 +644,8 @@ void screen_init()
         screen_alloc();
 }
 
-void screen_redraw(int hint) 
+void screen_redraw() 
 {    
-        screen_movement_hint();
-        if (hint>=0 && hint<=screen_lines-1) {
-            screen_wanted_i = hint;
-        };
-        
         screen_compute_wanted(); 
         screen_highlight(); 
         display_message();
@@ -638,17 +657,9 @@ void screen_redraw(int hint)
         screen_done();
 }
 
-int saved_line;
-void screen_save() {
-    saved_line=screen_real_i;
-}
-void screen_restore() {
-    screen_redraw(saved_line);
-}
-
 void screen_refresh() 
 {
-        screen_movement_hint();
+        compute_scroll_hint();
         screen_compute_wanted(); 
         screen_highlight(); 
         display_message();
@@ -657,17 +668,34 @@ void screen_refresh()
         screen_done();
 }
 
+int saved_line;
+
+void screen_save() 
+{
+    saved_line=first_line;
+}
+
+void screen_restore() 
+{
+    screen_set_first_line(saved_line);
+    screen_redraw();
+}
+
+
 void screen_ppage() {
-    if (screen_real_i==text_l) return;
-    text_move(text_line_begin(first_line));
-    screen_redraw(screen_lines/2);
+    int dest = text_l - screen_lines/2;
+    if (dest < 0) return;
+    text_move(text_line_begin(dest));
+    screen_set_first_line(dest - screen_lines/2);
+    screen_refresh();
 }
 
 void screen_npage() {
-    if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) 
-        return;
-    text_move(text_line_begin(first_line + screen_lines - 1));
-    screen_redraw(screen_lines/2);
+    int dest = text_l + screen_lines/2;
+    if (dest >= text_lines) return;
+    text_move(text_line_begin(dest));
+    screen_set_first_line(dest - screen_lines/2);
+    screen_refresh();
 }
 
 void screen_ol() {
@@ -693,17 +721,76 @@ string debug;
 // - simple right click inside, del selection
 // - simple right click outside, paste selection at cursor position.
 
+int mouse_highlight(int l1, int p1, int l2, int p2, int mode) {
+    if (l1>l2) {
+        swap(l1,l2);
+        swap(p1,p2);
+    }
+    if (l1==l2 && p1>p2) {
+        swap(p1,p2);
+    }
+        
+    int i=l1-first_line;
+    if (i<0) {
+        i=0;
+        p1=0;
+    }
+    
+    int imax = l2-first_line;
+    if (imax>= int(screen_lines)) 
+        imax = screen_lines-1;
+    
+    int j= max(p1 + shift,shift);
+    int jmax = p2 + shift;
+    int end=0;
+    
+    if (mode) {
+        j = shift;
+        jmax = screen_columns;
+    }
+    
+    while (i<imax || (i==imax && j <= jmax) ) {
+        if (screen_wanted[i][j]==EOL) {
+            end=1;
+            if (i==imax) jmax = screen_columns;
+            screen_wanted[i][screen_columns]=EOL;
+        }
+        color_wanted[i][j] |= REVERSE;
+        if (end) {
+            screen_wanted[i][j]=' ';
+        }
+        j++;
+        if (j==screen_columns) {
+            j=shift;
+            end=0;
+            i++;
+        }
+    }
+}
+
+int inside(int mi_l,int mi_p,int ma_l,int ma_p,int l,int p) {
+    if (l<mi_l) return 0;
+    if (l>ma_l) return 0;
+    if (l==mi_l && p<mi_p) return 0;
+    if (l==ma_l && p>ma_p) return 0;
+    return 1;
+}
+
 int mouse_handling() 
 {
+    int c;
+    int select=0;
+    int pending=0;
+    int move=0;
+    int mode=0;
+    int f_pos;
+    int f_line;
+    int l_pos;
+    int l_line;
+    
     while (1) {
-        if (!debug.empty()) {
-            text_message = debug;
-            debug.clear();
-        }
-
-        screen_refresh();
-        int c = term_getchar();
-        if (c!=MOUSE_EVENT) return c;
+        c = term_getchar();
+        if (c!=MOUSE_EVENT) break;
         
         mevent e = mevent_stack[mevent_stack.sz-1];
         mevent_stack.erase(mevent_stack.end()-1);
@@ -711,28 +798,102 @@ int mouse_handling()
         int line = first_line + e.y;
         int pos  = e.x - shift;
         
-        SS yo;
-        yo << e.x << " " << e.y << " " << e.button << " -> ";
-        yo << line << " " << pos;
-        debug=yo.str();
-        
-        if (e.button == MOUSE_R  && pos>=0) {
-            text_move(text_line_begin(line));
-            line_goto(pos);
+        switch (e.button) {
+            case MOUSE_L :  
+                if (inside(f_line,f_pos,l_line,l_pos,line,pos)) {
+                    // del !
+                } else {
+                    select = 0;
+                    mode = 0;
+                    move =0;
+                    // print
+                }
+                break;
+            case MOUSE_R :  
+                if (select==0) {
+                    select = 1;
+                    pending = 1;
+                    f_line = line;
+                    f_pos = pos;
+                    if (f_pos<0) {
+                        mode =1;
+                        move =1;
+                    }
+                } else {
+                    if (inside(f_line,f_pos,l_line,l_pos,line,pos)) {
+                        select=0;
+                        move=0;
+                        mode=0;
+                    } else 
+                    if (line < f_line || (line==f_line && pos<=f_pos)) {
+                        f_pos = pos;
+                        f_line = line;
+                    } else
+                    if (line > l_line || (line==l_line && pos>=l_pos)) {
+                        l_pos = pos;
+                        l_line = line;
+                    }
+                }
+                break;
+            case WHEEL_UP : 
+                screen_set_first_line(first_line-4);
+                break;
+            case WHEEL_DOWN :
+                screen_set_first_line(first_line+4);
+                break;
+            case MOUSE_RELEASE :
+                pending = 0;
+                if (select && move) {
+                    // reorder points
+                    if (l_line < f_line || (l_line == f_line && l_pos <= f_pos)) {
+                        swap(l_line, f_line);
+                        swap(l_pos, f_pos);
+                    }
+                    
+                    if (mode) {
+                        f_pos = 0;
+                        l_pos = screen_columns;
+                    }
+                
+                    // perform the selection...
+                }
+                if (select && !move) {
+                    text_move(text_line_begin(f_line));
+                    line_goto(f_pos);
+                    select = 0;
+                }
         }
-//    if (e.button==WHEEL_UP) {
-//        fi(4) buffer.pb(KEY_UP);
-//        c = KEY_UP;
-//        break;
-//    }
-//    if (e.button==WHEEL_DOWN) {
-//        fi(4) buffer.pb(KEY_DOWN);
-//        c = KEY_DOWN;
-//        break;
-//    }
-//    return KEY_ESC;
+        
+        if (pending) {
+            l_pos = pos;
+            l_line = line;
+            if (l_pos != f_pos || l_line != l_line) move = 1;
+        } 
+        else if (select) {
+        }
+
+        
+//        SS yo;
+//        yo << e.x << " " << e.y << " " << e.button << " -> ";
+//        yo << line << " " << pos;
+//        debug=yo.str();
+//        
+//        if (!debug.empty()) {
+//            text_message = debug;
+//            debug.clear();
+//        }
+        
+        compute_scroll_hint();
+        screen_compute_wanted(); 
+        screen_highlight(); 
+        display_message();
+        if (select)
+           mouse_highlight(f_line,f_pos,l_line,l_pos,mode);
+        screen_make_it_real();
+        screen_done();
     }
-    return 0;
+    
+    return c;
 }
 
 int force = -1;
@@ -751,13 +912,10 @@ int screen_getchar() {
             text_message = debug;
             debug.clear();
         }
+        
         // refresh screen
-        if (force>=0) {
-            screen_redraw(force);
-            force=-1;
-        } else {
-            screen_refresh();
-        }
+        screen_movement_hint();
+        screen_refresh();
 
         c = mouse_handling();
         
@@ -765,29 +923,11 @@ int screen_getchar() {
             screen_ol();
             screen_redraw();
         } else if (c==PAGE_UP) {
-            screen_ppage();continue;
-            if (screen_real_i==text_l) continue;
-            if (screen_real_i != screen_lines-2) {
-                screen_redraw(screen_lines-2);
-                continue;
-            }
-            force = screen_lines-2;
-            fi (screen_lines-4) buffer.pb(KEY_UP);
-            c = KEY_UP;
-            break;
+            screen_ppage();
+            continue;
         } else if (c==PAGE_DOWN) {
-            screen_npage();continue;
-            if (int(screen_real_i) + int(text_lines) - int(text_l) <= int(screen_lines)) continue; 
-            if (screen_real_i > 1) {
-                screen_redraw(1);
-                continue;
-            }
-            // problem when we are on line 0...
-            // do one more down ?
-            force = 1;
-            fi (screen_lines-4) buffer.pb(KEY_DOWN);
-            c = KEY_DOWN;
-            break;
+            screen_npage();
+            continue;
         } else {
             break;
         }
