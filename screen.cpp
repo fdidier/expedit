@@ -394,7 +394,7 @@ void display_message()
         screen_wanted[screen_lines-1][j]=EOL;
         color_wanted[screen_lines-1][j]=0;
     }
-    
+
     if (text_message.empty()) return;
 
 //    // clear end of line
@@ -724,17 +724,17 @@ string debug;
 //** MOUSE HANDLING
 //***********************************************************
 
-// different from usual bindings
-// - simple left click move the cursor
-// - simple right click paste selection at cursor position
-// - left click + move start selection :
+// different from usual bindings :
+//
+// - whell scroll but do not change cursor pos.
+//
+// - simple right click move the cursor
+// - left click (w/wo move) start selection
 // - left click on number : select whole line.
 //
 // on selection
-// - simple left click inside, end selection
-// - simple left click outside, extend selection
-// - simple right click inside, del selection
-// - simple right click outside, paste selection at cursor position.
+// - left click inside, paste selection at cursor
+// - right click inside, del selection
 
 int mouse_highlight(int l1, int p1, int l2, int p2, int mode) {
     if (l1>l2) {

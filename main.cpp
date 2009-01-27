@@ -2,8 +2,8 @@
 #include "term.h"
 
 char        *filename;
-char        *swapname;
-char        *savename;
+char        *oldname;
+char        *newname;
 
 int          text_saved;
 
@@ -505,10 +505,6 @@ void end_record() {
  * TODO : catch deadly signal and write then ...
  */
 
-string   swap_filename;
-ofstream swap_stream;
-int      swap_index;
-
 /* cool:
  * We refresh the screen each time the program is waiting for a
  * char from the keyboard. And only then.
@@ -534,13 +530,6 @@ int text_getchar()
         return c;
     }
 
-    // force output every 10 chars
-    // not sure about that, is the buffer in the process or in the system ?
-    if (swap_index  == 10) {
-        swap_stream.flush();
-        swap_index=0;
-    }
-
     // add (+) to the title to reflect a modified text ?
     static int oldstatus;
     if (oldstatus!=text_saved) {
@@ -564,18 +553,6 @@ int text_getchar()
 
     // record char ?
     if (record) record_data.pb(res);
-
-    // TODO: run-length coding because many movement commands ??
-    // or just @ + position with 4 char...
-    // put a file limit < 4 GB...
-
-    // reconvert in utf-8 before writing in swap file
-    int temp = (uint) res;
-    do {
-        swap_stream.put( temp & 0xFF);
-        swap_index++;
-        temp >>= 8;
-    } while (temp);
 
     // return char
     return res;
@@ -1565,37 +1542,23 @@ void terminate(int param) {
 /******************************************************************/
 /******************************************************************/
 
+// rename filename to filename.old
 void text_backup()
 {
-    // Open the input file
-    int read = open(filename, O_RDONLY);
+    // delete oldname file if it exists
+    remove(oldname);
 
-    // Stat the input file to obtain its size
-    struct stat s;
-    fstat(read, &s);
-
-    // Open the output file for writing,
-    // with the same permissions as the source file
-
-    int write = open(savename, O_WRONLY | O_CREAT, s.st_mode);
-
-    // Blast the bytes from one file to the other
-    off_t off = 0;
-    sendfile(write, read, &off, s.st_size);
-
-    // Close up
-    close(read);
-    close(write);
+    // change filename ...
+    rename(filename, oldname);
 }
 
-int text_save()
+// open file and write new content
+int text_write(char* name)
 {
-    // flush swap so we are safe if anything happen
-    swap_stream.flush();
-
-    // open file and write new content
     ofstream s;
-    s.open(filename,ios_base::trunc);
+    s.open(name,ios_base::trunc);
+    if (!s) return 1;
+
     fi (text_end) {
         // jump gap if needed
         if (i==text_gap) i=text_restart;
@@ -1607,15 +1570,35 @@ int text_save()
             temp>>=8;
         } while (temp);
     }
-    s.close();
 
+    s.close();
+    return 0;
+}
+
+int text_save()
+{
+    if (text_saved==0)
+        text_backup();
+        
+    text_write(filename);
     text_message="File saved";
     text_saved=1;
 }
 
-int open_file() {
+void text_exit()
+{
+    if (text_saved==0) {
+        if (text_write(newname)) {
+            text_message="Couldn't write backup file. quit?";
+            char c=text_getchar();
+        }
+    }
+}
+
+int open_file()
+{
     /* Open file */
-    ifstream inputStream;
+    fstream inputStream;
     inputStream.open(filename);
     if (!inputStream) {
         return 0;
@@ -1624,7 +1607,6 @@ int open_file() {
     /* Put file in gap buffer text */
     char c;
     int ch;
-    int last=0;
     int temp=0;
     while (inputStream.get(c)) {
         ch = uchar(c);
@@ -1641,7 +1623,6 @@ int open_file() {
         }
 
         // convert tab in space
-        last=ch;
         if (ch == '\t') {
             do {
                 text_add(' ');
@@ -1658,8 +1639,6 @@ int open_file() {
             temp++;
         }
     }
-    if (last!=EOL) text_add(EOL);
-    text_saved=1;
 
     /* close file */
     inputStream.close();
@@ -1667,14 +1646,38 @@ int open_file() {
     return 1;
 }
 
+int compute_name(char *argument)
+{
+    char s_old[]=".old";
+    char s_new[]=".new";
+
+    int n=0;
+    while (argument[n]!=0) n++;
+
+    filename = (char *) malloc(n);
+    oldname = (char *) malloc(n+5);
+    newname = (char *) malloc(n+5);
+
+    int i=0;
+    fi (n+1) {
+        filename[i]=argument[i];
+        oldname[i+1]=newname[i+1]=argument[i];
+    }
+    oldname[0]='.';
+    newname[0]='.';
+    fi (5) {
+        oldname[n+1+i]=s_old[i];
+        newname[n+1+i]=s_new[i];
+    }
+}
+
 int main(int argc, char **argv)
 {
-    signal(SIGTERM,terminate);
-
+    // exit if no filename
     if (argc<2) exit(1);
-    filename = argv[1];
+    compute_name(argv[1]);
 
-    /* basic option */
+    // basic option
     int start_line=-1;
     if (argc>2) {
         int num=0;
@@ -1686,97 +1689,44 @@ int main(int argc, char **argv)
         start_line=num;
     }
 
-//  todo:
-//  hash/crc ??
-//  get the file timestamp and make good use of it
-//  resume editing to the current pos.
-//  +-num line command option
-
-    // test for existance
-    if (access(filename,F_OK)) {
-//        printf("File do not exist\n");
-//        exit(1);
-    } else {
-        if (!open_file()) {
-            printf("Error openning file %s\n", argv[1]);
-            exit(1);
-        }
+    // load file
+    open_file();
+    
+    // init
+    if (text_gap==0 || text[text_gap]!=EOL) {
+        text_add(EOL);
     }
+    text_saved=1;
 
-//  TODO : do it only on the first save ...
-//  Do a backup of the original file
-//  not really useful if we keep the same swap file for all the editing session
-//  and we use a versionning system
-//  But safer for all the development phase, and we need a starting point for the
-//  swap reconstruction to work ...
-    swap_filename = "." + string(argv[1]) + string(".old");
-    swap_stream.open(swap_filename.c_str());
-    if (!swap_stream) {
-        printf("Error openning backup file %s\n", swap_filename.c_str());
-        exit(0);
-    }
+    // catch deadly signal    
+    signal(SIGTERM,terminate);
 
-//  the text_gap is at the end of the file
-//  after the loading process ...
-    fi (text_gap) swap_stream.put(text[i]);
-    swap_stream.flush();
-    swap_stream.close();
-
-//  Swap file name
-//  problem with directory ...
-    swap_index = 0;
-    swap_filename = "." + string(argv[1]) + string(".swp");
-
-//  Read old pos
-//  pretty ugly but other sol
-//  difficult with c++ file handling
-    int oldpos=0;
-    ifstream test;
-    test.open(swap_filename.c_str());
-    if (test) {
-        test >> oldpos;
-    }
-    test.close();
-
-// Open swap file
-    swap_stream.open(swap_filename.c_str());
-    if (!swap_stream) {
-        printf("Error openning swap file %s\n", swap_filename.c_str());
-        exit(0);
-    }
-//  to be able to write the position
-//  without destroing swap at the end...
-    fi (16) swap_stream << ' ';
-    swap_stream << EOL;
-
-//  Set position in the text
-//  TODO: write corresponding instructions in swapfile.
-    text_move(oldpos);
-    if (start_line>=0) text_move(text_line_begin(start_line-1));
+    // move to asked line
+    text_move(0);
+    if (start_line>=0) 
+        text_move(text_line_begin(start_line-1));
     base_pos=compute_pos();
 
+    // init screen
+    // switch to fullscreen mode
     screen_init();
     term_set_title((uchar *)argv[1]);
 
+    // enter mainloop
     mainloop();
+    
+    // backup unsaved text if necessary
+    text_exit();
 
-//  output current position to be able
-//  to restore it the next time we open the file
-//  erase the beginning of the swap file
-//  wanted to use the end but then difficult to read !!
-    swap_stream.seekp(0);
-    swap_stream << text_gap;
-    swap_stream.put(EOL);
-    swap_stream.flush();
-    swap_stream.close();
-
-//  leave the terminal correctly
+    // Leave the terminal correctly
+    // switch back to normal mode
     reset_input_mode();
 
-// don't work all the time ??
+    //  Display final messages
     if (text_saved==0)
-        cout << "The file was not saved" << endl;
+        cout << "Last version not saved, see " << newname << " if needed." << endl;
     cout.flush();
 
+    //  Thanks for using fed !
     exit(0);
 }

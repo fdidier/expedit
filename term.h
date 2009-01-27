@@ -93,7 +93,7 @@ extern vector<mevent> mevent_stack;
 // Control macro
 #define CTRL(c)         ((c) & 0x1F)
 
-// Keys we can't change :( 
+// Keys we can't change :(
 #define KEY_ESC         CTRL('[')
 #define KEY_TAB         CTRL('I')
 #define KEY_BACKSPACE   CTRL('H')
@@ -108,7 +108,7 @@ extern vector<mevent> mevent_stack;
 #define CONTROL_M       CTRL(']')
 
 #define KEY_DELETE      CTRL('D')
-#define KEY_INSERT      141         //CTRL('\\') 
+#define KEY_INSERT      141         //CTRL('\\')
 
 // used for run length coding ??
 #define KEY_NULL        200         //CTRL('@')
@@ -119,7 +119,7 @@ extern vector<mevent> mevent_stack;
 // not implemented yet
 // #define KEY_MACRO       CTRL('Z')
 
-// goto, 
+// goto,
 // TODO: add flavour to go to begin/end of text
 // to given char ?
 #define KEY_GOTO        CTRL('G')
@@ -140,14 +140,14 @@ extern vector<mevent> mevent_stack;
 #define KEY_MARK        CTRL('@')
 
 #define KEY_DLINE       CTRL('X')
-#define KEY_YLINE       CTRL('C') 
-#define KEY_PRINT       CTRL('V') 
+#define KEY_YLINE       CTRL('C')
+#define KEY_PRINT       CTRL('V')
 
 #define KEY_QUIT        CTRL('Q')
 #define KEY_SAVE        CTRL('S')
 
 #define KEY_UNDO        CTRL('U')
-#define KEY_REDO        CTRL('R') 
+#define KEY_REDO        CTRL('R')
 #define KEY_TILL        CTRL('T')
 
 #define KEY_KWORD       CTRL('K')
