@@ -7,7 +7,6 @@ char        *savename;
 
 int          text_saved;
 
-string          text_highlight;
 string          text_message;
 vector<int>     text;             // gap_buffer
 int             text_gap=0;       // cursor/gap absolute position
@@ -307,7 +306,12 @@ void text_move(int i)
 
 int  text_real_position(int i) {
     if (i<text_gap) return i;
-    else return i + text_restart-text_gap;
+    else return i + text_restart - text_gap;
+}
+
+int  text_absolute_position(int i) {
+    if (i<text_gap) return i;
+    else return i - text_restart + text_gap;
 }
 
 void text_absolute_move(int i) {
@@ -366,7 +370,6 @@ int text_redo() {
 // **********************************************************
 
 // return index of the next EOL
-// use cache_search(text_l+1) - 1 ?
 int next_eol()
 {
     int i=cache_search(text_l+1);
@@ -400,6 +403,11 @@ int text_line_begin(int l)
     // keep l in range
     l = l % text_lines;
     if (l<0) l+= text_lines;
+
+    // special case, BUG somewhere ?
+    if (l==0) {
+        return 0;
+    }
 
     // beginning cached ?
     int res = cache_search(l);
@@ -977,6 +985,7 @@ void restore_pos() {
 vector<int> user_search;
 vector<int> pattern;
 int search_highlight=0;
+int display_pattern=0;
 
 // get id at current cursor position
 void get_id()
@@ -1041,10 +1050,10 @@ void text_new_search()
     pattern.clear();
     while (1) {
         if (pattern.empty()) {
+            display_pattern=0;
             text_message="<search>";
         } else {
-            text_message.clear();
-            fi (pattern.sz) text_message.pb(pattern[i]);
+            display_pattern=1;
         }
         int c = text_getchar();
         if (isprint(c)) {
@@ -1068,6 +1077,7 @@ void text_new_search()
         replay = c;
         break;
     }
+    display_pattern=0;
 }
 
 // set pattern to the identificator under the cursor
@@ -1267,8 +1277,13 @@ int macro_change_line() {
     return 1;
 }
 
-int macro_exec() {
+int macro_exec()
+{
     play_macro = macro_data;
+    insert();
+    macro_end=text_gap;
+    return 0;
+
     // un truc qui fait rien;
     // Il faut changer ca ...
     if (text_gap == macro_end) {
@@ -1437,9 +1452,49 @@ void text_delete_to_end() {
 
 void text_change_case() {
     int i=text_restart;
-    if (text[i]>='a' && text[i]<='z') text[i]+='A'-'a';
-    else if (text[i]>='A' && text[i]<='Z') text[i]-='A'-'a';
-    text_move(text_restart+1);
+    int c;
+    if (text[i]>='a' && text[i]<='z') c = text[i]+'A'-'a';
+    else if (text[i]>='A' && text[i]<='Z') c = text[i]-'A'-'a';
+    text_delete();
+    text_putchar(c);
+}
+
+void mouse_select(int b, int e) {
+    selection.clear();
+    while (b<=e) {
+        if (b==text_gap) b=text_restart;
+        selection.pb(text[b]);
+        b++;
+    }
+}
+
+void mouse_delete(int b, int e)
+{
+    undo_flush();
+    undo_savepos();
+
+    // convert position to absolute
+    b = text_absolute_position(b);
+    e = text_absolute_position(e);
+
+    int save = text_gap;
+    if (save>b) {
+        if (save<e) save = b;
+        else save -= (e-b)+1;
+    }
+
+    text_absolute_move(b);
+    while(b<=e) {
+        b++;
+        text_delete();
+    }
+    text_absolute_move(save);
+}
+
+void mouse_paste() {
+    undo_flush();
+    undo_savepos();
+    text_print();
 }
 
 // save pos on any modification...
