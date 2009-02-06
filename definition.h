@@ -68,8 +68,10 @@ extern void mouse_select(int b, int e);
 extern void mouse_delete(int b, int e);
 extern void mouse_paste();
 
+extern int      match(vector<int> &s, int i);
+extern int      text_real_position(int i);
 extern int      search_highlight;
-extern int  display_pattern;
+extern int      display_pattern;
 extern vector<int> pattern;
 extern string   text_message;
 

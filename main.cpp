@@ -20,11 +20,7 @@ int             text_blocsize = 1024;
 // selection
 vector<int> selection;
 
-void dump_error(char *err) {
-    fprintf(stderr,"err: ");
-    fprintf(stderr,err);
-    fprintf(stderr,"\n");
-}
+int search_highlight=0;
 
 // **************************************************************
 // **************************************************************
@@ -231,6 +227,7 @@ void text_back()
 void edit_text() {
     text_modif++;
     text_saved=0;
+    search_highlight=0;
 }
 
 void text_putchar(int c)
@@ -253,7 +250,7 @@ void text_backspace()
 
 void text_delete()
 {
-    if (text_restart>=text_end) return;
+    if (text_restart+1>=text_end) return;
     edit_text();
 
     if (undo_pos<text_gap) undo_start();
@@ -276,7 +273,7 @@ void text_delete()
 void text_move(int i)
 {
     /* we can't go behond the last EOL */
-    if (i<0 || (i>=text_gap && i<text_restart) || i>=text.sz) {
+    if (i<0 || (i>=text_gap && i<text_restart) || i>=text_end) {
         return;
     }
 
@@ -315,8 +312,11 @@ int  text_absolute_position(int i) {
 }
 
 void text_absolute_move(int i) {
-    if (i<text_gap) text_move(i);
-    else text_move(i + text_restart-text_gap);
+    if (i<text_gap) {
+        text_move(i);
+        return;
+    }
+    text_move(i + text_restart-text_gap);
 }
 
 void text_apply(struct s_undo op)
@@ -561,22 +561,26 @@ int text_getchar()
 /*******************************************************************/
 // useful functions
 
-int is_begin() {
+int is_begin()
+{
     int i=text_gap;
     return (i==0 || text[i-1]==EOL);
 }
 
-int is_end() {
+int is_end()
+{
     int i=text_restart;
     return (i==text_end || text[i]==EOL);
 }
 
-int is_space_before() {
+int is_space_before()
+{
     int i=text_gap;
     return (i==0 || text[i-1]==EOL || text[i-1]==' ');
 }
 
-int capitalise(int c) {
+int capitalise(int c)
+{
     if ((c>='a' && c<='z')) return c-'a'+'A';
 }
 
@@ -619,7 +623,7 @@ void del_line() {
         } while (i<text.sz && selection[selection.sz-1]!=EOL);
 
         // delete it
-        while (text_restart<text.sz && text[text_restart]!=EOL) {
+        while (text_restart+1<text.sz && text[text_restart]!=EOL) {
             text_delete();
         }
         text_delete();
@@ -958,10 +962,9 @@ void restore_pos() {
 //******************************************
 
 // Pattern is the current search pattern
-// search_highlight is not used for now
+
 vector<int> user_search;
 vector<int> pattern;
-int search_highlight=0;
 int display_pattern=0;
 
 // get id at current cursor position
@@ -1046,8 +1049,10 @@ void text_new_search()
         }
         if (c==KEY_ENTER) {
  //           user_search = pattern;
-            if (!pattern.empty())
-                text_search_next();
+            if (pattern.empty())
+                get_id();
+            text_search_next();
+
             break;
         }
  //       pattern = user_search;
@@ -1375,11 +1380,21 @@ int move_command(char c)
         case KEY_END: text_move(next_eol());break;
         case KEY_LEFT: text_move(text_gap-1);break;
         case KEY_RIGHT: text_move(text_restart+1);break;
-        case KEY_FIND: text_new_search();macro_next=KEY_NEXT;break;
+        case KEY_FIND:
+            text_new_search();
+            macro_next=KEY_NEXT;
+            search_highlight=1;
+            break;
 //        case KEY_FIND: inline_search();macro_next=KEY_NEXT;break;
-        case KEY_WORD: search_id();macro_next=KEY_NEXT;break;
-        case KEY_NEXT: text_search_next();macro_next=KEY_NEXT;break;
-        case KEY_PREV: text_search_prev();macro_next=KEY_PREV;break;
+        case KEY_WORD: 
+            search_highlight=1;search_id();macro_next=KEY_NEXT;
+            break;
+        case KEY_NEXT: 
+            search_highlight=1;text_search_next();macro_next=KEY_NEXT;
+            break;
+        case KEY_PREV: 
+            search_highlight=1;text_search_prev();macro_next=KEY_PREV;
+            break;
         default : return 0;
     }
     base_pos = compute_pos();
@@ -1488,19 +1503,18 @@ int mainloop() {
         if (move_command(c)) continue;
         switch (c) {
             case KEY_AI :
-                        if (auto_indent) {
-                            text_message="auto indent off";
-                            auto_indent=0;
-                        } else {
-                            text_message="auto indent on";
-                            auto_indent=1;
-                        };
-                        break;
+                if (auto_indent) {
+                    text_message="auto indent off";
+                    auto_indent=0;
+                } else {
+                    text_message="auto indent on";
+                    auto_indent=1;
+                };
+                break;
             case KEY_CASE : text_change_case();break;
             case KEY_KWORD : text_kill_word();break;
             case KEY_DEND : text_delete_to_end();break;
-            case KEY_ESC : restore_pos();break;
-//            case KEY_EOL : text_putchar(EOL);
+//            case KEY_ESC : restore_pos();break;
             case KEY_MARK: text_select();b=0;break;
             case KEY_UNDO: text_undo();break;
             case KEY_TILL: macro_till();b=0;save_pos();break;
@@ -1530,13 +1544,6 @@ int mainloop() {
             save_pos();
         }
     }
-}
-
-// ********************************************************
-
-void terminate(int param) {
-    reset_input_mode();
-    exit(1);
 }
 
 /******************************************************************/
@@ -1579,26 +1586,16 @@ int text_save()
 {
     if (text_saved==0)
         text_backup();
-        
+
     text_write(filename);
     text_message="File saved";
     text_saved=1;
 }
 
-void text_exit()
-{
-    if (text_saved==0) {
-        if (text_write(newname)) {
-            text_message="Couldn't write backup file. quit?";
-            char c=text_getchar();
-        }
-    }
-}
-
 int open_file()
 {
     /* Open file */
-    fstream inputStream;
+    ifstream inputStream;
     inputStream.open(filename);
     if (!inputStream) {
         return 0;
@@ -1671,10 +1668,65 @@ int compute_name(char *argument)
     }
 }
 
+// ********************************************************
+// to remember last line
+
+map<string, int> info;
+
+int load_info() {
+    ifstream s;
+    s.open(".fed.info");
+    if (!s) return 0;
+
+    string name;
+    int pos;
+    while (s>>name>>pos) {
+        info[name]=pos;
+    }
+    s.close();
+
+    if (info.find(filename)!=info.end())
+        return info[filename];
+    return 0;
+}
+
+void save_info() {
+    ofstream s;
+    s.open(".fed.info");
+
+    info[filename]=text_gap;
+    map<string, int>::iterator iter=info.begin();
+    while (iter!=info.end()) {
+        s << (iter->first) << " " << (iter->second) << endl;
+        iter++;
+    }
+    s.close();
+}
+
+// ********************************************************
+
+void text_exit() {
+    reset_input_mode();
+    save_info();
+    if (text_saved==0) {
+        text_write(newname);
+        cout << "Last version not saved, see " << newname << " if needed." << endl;
+        cout.flush();
+    }
+}
+
+void terminate(int param) {
+    text_exit();
+    exit(1);
+}
+
 int main(int argc, char **argv)
 {
     // exit if no filename
-    if (argc<2) exit(1);
+    if (argc<2) {
+        cout << "please provide a filename." << endl;
+        exit(1);
+    }
     compute_name(argv[1]);
 
     // basic option
@@ -1691,19 +1743,21 @@ int main(int argc, char **argv)
 
     // load file
     open_file();
-    
+
     // init
-    if (text_gap==0 || text[text_gap]!=EOL) {
+    if (text_gap==0 || text[text_gap-1]!=EOL) {
         text_add(EOL);
     }
     text_saved=1;
 
-    // catch deadly signal    
+    // catch deadly signal
     signal(SIGTERM,terminate);
 
     // move to asked line
-    text_move(0);
-    if (start_line>=0) 
+    int pos = load_info();
+    if (pos>=text_gap) pos = text_gap-1;
+    text_absolute_move(pos);
+    if (start_line>=0)
         text_move(text_line_begin(start_line-1));
     base_pos=compute_pos();
 
@@ -1714,18 +1768,10 @@ int main(int argc, char **argv)
 
     // enter mainloop
     mainloop();
-    
+
     // backup unsaved text if necessary
+    // and exit properly
     text_exit();
-
-    // Leave the terminal correctly
-    // switch back to normal mode
-    reset_input_mode();
-
-    //  Display final messages
-    if (text_saved==0)
-        cout << "Last version not saved, see " << newname << " if needed." << endl;
-    cout.flush();
 
     //  Thanks for using fed !
     exit(0);

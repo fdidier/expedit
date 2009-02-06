@@ -434,67 +434,108 @@ void display_message()
     color_wanted[screen_lines-1][j]=0;
 }
 
-void highlight_search() {
-    if (search_highlight==0) return;
-    int j=screen_wanted_j-1;
-    int n=0;
-    while (j>=shift && n < search_highlight) {
-        color_wanted[screen_wanted_i][j] |= REVERSE;
-        j--;
-        n++;
-    }
+// ***********************************************************
+// ***********************************************************
+// ***********************************************************
+
+
+void highlight_clear()
+{
+    fi (screen_lines)
+        fj (screen_columns)
+            if (j<shift) {
+                color_wanted[i][j]=YELLOW;
+            } else {
+                color_wanted[i][j]=DEFAULT_COLOR;
+            }
 }
 
-map<string,int> keyword;
-void screen_highlight()
+void highlight_comment()
 {
-    // clear
-    fi (screen_lines)
-    fj (screen_columns)
-        color_wanted[i][j]=DEFAULT_COLOR;
-
     // comment
     int bloc=0;
     int line=0;
-    uint **yo=screen_wanted;
     fi(screen_lines) {
-        int blue=0;
+        int color=0;
         int first=1;
-        fj(screen_columns) {
-      //      color_wanted[i][j]=0;
-            if (j<shift) {
-                color_wanted[i][j]=YELLOW;
-                continue;
-            }
-            if (yo[i][j]==EOL) break;
+        for (int j=shift; j<screen_columns; j++)
+        {
+            if (screen_wanted[i][j]==EOL) break;
 
-            char c=yo[i][j];
+            char c=screen_wanted[i][j];
             if (first) {
                 if (c==' ') continue;
-                if (isspecial(c) && c!='{' && c!='}' && c!='['
-                                 && c!=']' && c!='(' && c!=')')
-                    blue=1;
+                if (c=='/') color = BLUE;
+                if (c=='%') color = BLUE;
+                if (c=='#') color = MAGENTA;
                 first=0;
             }
-            if (blue)
-                color_wanted[i][j] = MAGENTA;
-//            else color_wanted[i][j] = WHITE;
+            if (color) color_wanted[i][j] = color;
         }
     }
+}
 
-    /* bracket matching */
-    if (0) {
+void highlight_header()
+{
+    fi(screen_lines) {
+        if (isletter(screen_wanted[i][shift]))
+        fj(screen_columns) {
+            if (j<shift) {
+                continue;
+            }
+            if (screen_wanted[i][j]==EOL) break;
+            color_wanted[i][j] = RED;
+        }
+    }
+}
+
+void highlight_maj()
+{
+    fi(screen_lines) {
+        for (int j=shift; j<screen_columns; j++) {
+            if (isbig(screen_wanted[i][j]) &&
+               (j==shift || !isletter(screen_wanted[i][j-1]))) {
+                    do {
+                        color_wanted[i][j] = MAGENTA;
+                        j++;
+                    } while (j<screen_columns && isletter(screen_wanted[i][j]));
+            }
+        }
+    }
+}
+
+void highlight_number()
+{
+    fi(screen_lines) {
+        for (int j=shift; j<screen_columns; j++) {
+            if (isnum(screen_wanted[i][j]) &&
+               (j==shift || !isletter(screen_wanted[i][j-1]))) {
+                    do {
+                        color_wanted[i][j] = RED;
+                        j++;
+                    } while (j<screen_columns && isnum(screen_wanted[i][j]));
+            }
+        }
+    }
+}
+
+void highlight_bracket()
+{
+    if (screen_wanted_i<0 || screen_wanted_i>=screen_lines) return;
+    if (screen_wanted_j<0 || screen_wanted_j>=screen_columns) return;
+
     int c;
     int temp=screen_wanted_j;
+
     do {
-        c = yo[screen_wanted_i][temp];
+        c = screen_wanted[screen_wanted_i][temp];
         if (c=='(' || c==')' || c=='{' || c=='}' || c=='[' || c==']') break;
         temp--;
     } while (temp>=0);
 
     if (temp>=0) {
         if (temp!=screen_wanted_j)
-            color_wanted[screen_wanted_i][temp]=RED;
+            color_wanted[screen_wanted_i][temp]= RED;
 
         if (c=='{' || c=='[' || c=='(') {
             char b=c;
@@ -507,8 +548,8 @@ void screen_highlight()
             int j=temp;
             for(;i<screen_lines;i++) {
                 for(;j<screen_columns;j++) {
-                    if (yo[i][j]==b) count++;
-                    if (yo[i][j]==e) count--;
+                    if (screen_wanted[i][j]==b) count++;
+                    if (screen_wanted[i][j]==e) count--;
                     if (count == 0) {
                         color_wanted[i][j] = RED;
                         i=screen_lines;
@@ -529,8 +570,8 @@ void screen_highlight()
             int j=temp;
             for(;i>=0;i--) {
                 for(;j>=0;j--) {
-                    if (yo[i][j]==b) count++;
-                    if (yo[i][j]==e) count--;
+                    if (screen_wanted[i][j]==b) count++;
+                    if (screen_wanted[i][j]==e) count--;
                     if (count == 0) {
                         color_wanted[i][j] = RED;
                         i=-1;
@@ -541,35 +582,11 @@ void screen_highlight()
             }
         }
     }
-    }
-//    return;
-//    fi (screen_lines) {
-//        line = 0;
-//        for (int j=shift; j<screen_columns; j++) {
-//            if (yo[i][j]=='\n') break;
-//            if (yo[i][j]=='/' && yo[i][j+1]=='*') bloc=1;
-//            if (yo[i][j]=='/' && yo[i][j+1]=='/') line=1;
-//            if (bloc || line) {
-//                yo[i][j] &= 0xFF;
-//                yo[i][j] |= BLUE << 8;
-//            }
-//            if (j>0 && (yo[i][j-1]&0xFF)=='*' && (yo[i][j]&0xFF)=='/') {
-//                if (bloc==0) {
-//                    /* opposite direction */
-//                    for (int a=0; a<=i; a++)
-//                    for (int b=shift;(a==i?b<=j:b<screen_columns);b++) {
-//                        if (yo[a][b]==EOL) break;
-//                        yo[a][b] &= 0xFF;
-//                        yo[a][b] |= BLUE << 8;
-//                    }
-//                }
-//                bloc=0;
-//            }
-//        }
-//    }
-//    return;
+}
 
-    /* c keywords */
+map<string,int> keyword;
+void highlight_keywords()
+{
     fi (screen_lines) {
         int j=0;
         int s=0;
@@ -583,15 +600,6 @@ void screen_highlight()
                 word.pb(screen_wanted[i][j]);
                 j++;
             }
-//            if (s>0 && screen_wanted[i][s-1]=='#') {
-//                /* preprocessor */
-//                s--;
-//                int color = MAGENTA;
-//                while (s<j) {
-//                    screen_wanted[i][s] |= color << 8;
-//                    s++;
-//                }
-//            } else
             if (keyword.find(word) != keyword.end()) {
                 int color = keyword[word];
                 while (s<j) {
@@ -602,6 +610,50 @@ void screen_highlight()
             }
         }
     }
+}
+
+void highlight_search()
+{
+    if (search_highlight==0)
+        return;
+
+    int size = pattern.sz;
+    if (pattern[0]==' ') size--;
+    if (pattern[pattern.sz-1]==' ') size--;
+
+    fi (screen_lines) {
+        int begin = text_line_begin(first_line+i);
+        if (begin==text_gap) begin = text_restart;
+
+        for (int j=shift; j<screen_columns; j++) {
+
+            int pos = begin + j-shift;
+            if (begin<=text_gap) {
+                if (pos>=text_gap) {
+                    pos += text_restart-text_gap;
+                }
+            }
+
+            if (match(pattern,pos)) {
+                fk (size) {
+                    color_wanted[i][j]|=REVERSE;
+                    j++;
+                    if (j>= screen_columns) break;
+                }
+            }
+
+        }
+    }
+}
+
+void screen_highlight()
+{
+    highlight_clear();
+    highlight_bracket();
+    highlight_number();
+    highlight_keywords();
+    highlight_search();
+    highlight_comment();
 }
 
 
@@ -623,6 +675,8 @@ void screen_sigwinch_handler(int sig)
 void screen_init()
 {
         keyword["if"]=YELLOW;
+        keyword["fi"]=YELLOW;
+        keyword["fj"]=YELLOW;
         keyword["else"]=YELLOW;
         keyword["return"]=YELLOW;
         keyword["break"]=YELLOW;
@@ -635,7 +689,11 @@ void screen_init()
         keyword["for"]=YELLOW;
         keyword["struct"]=YELLOW;
         keyword["sizeof"]=YELLOW;
+        keyword["new"]=YELLOW;
+        keyword["delete"]=YELLOW;
 
+        keyword["unsigned"]=GREEN;
+        keyword["short"]=GREEN;
         keyword["int"]=GREEN;
         keyword["uint"]=GREEN;
         keyword["char"]=GREEN;
@@ -770,7 +828,7 @@ int mouse_highlight(int l1, int p1, int l2, int p2, int mode) {
             if (i==imax) jmax = screen_columns;
             screen_wanted[i][screen_columns]=EOL;
         }
-        color_wanted[i][j] |= REVERSE;
+        color_wanted[i][j] = DEFAULT_COLOR | REVERSE;
         if (end) {
             screen_wanted[i][j]=' ';
         }
@@ -828,9 +886,6 @@ int mouse_handling()
     int l_line;
 
     while (1) {
-        c = term_getchar();
-        if (c!=MOUSE_EVENT) break;
-
         mevent e = mevent_stack[mevent_stack.sz-1];
         mevent_stack.erase(mevent_stack.end()-1);
 
@@ -839,6 +894,7 @@ int mouse_handling()
 
         switch (e.button) {
             case MOUSE_M :
+                // paste
                 select = 0;
                 mode = 0;
                 move =0;
@@ -855,6 +911,10 @@ int mouse_handling()
                     // move
                     text_move(text_line_begin(line));
                     line_goto(pos);
+                    if (e.y==0)
+                        screen_set_first_line(first_line-1);
+                    if (e.y==screen_lines-1)
+                        screen_set_first_line(first_line+1);
                 }
                 select = 0;
                 mode = 0;
@@ -915,17 +975,6 @@ int mouse_handling()
         else if (select) {
         }
 
-
-//        SS yo;
-//        yo << e.x << " " << e.y << " " << e.button << " -> ";
-//        yo << line << " " << pos;
-//        debug=yo.str();
-//
-//        if (!debug.empty()) {
-//            text_message = debug;
-//            debug.clear();
-//        }
-
         compute_scroll_hint();
         screen_compute_wanted();
         screen_highlight();
@@ -934,12 +983,15 @@ int mouse_handling()
            mouse_highlight(f_line,f_pos,l_line,l_pos,mode);
         screen_make_it_real();
         screen_done();
+
+        c = term_getchar();
+        if (c!=MOUSE_EVENT) break;
     }
 
     return c;
 }
 
-int force = -1;
+int mouse = 0;
 vector<int> buffer;
 int screen_getchar() {
     int c;
@@ -960,7 +1012,16 @@ int screen_getchar() {
         screen_movement_hint();
         screen_refresh();
 
-        c = mouse_handling();
+        if (mouse) {
+            c = mouse_handling();
+            mouse =0;
+        } else {
+            c = term_getchar();
+            if (c==MOUSE_EVENT) {
+                mouse = 1;
+                c = KEY_ESC;
+            }
+        }
 
         if (c==KEY_DISP) {
             screen_ol();
