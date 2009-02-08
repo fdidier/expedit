@@ -592,11 +592,11 @@ void highlight_keywords()
         int s=0;
         while (j<screen_columns) {
             if (screen_wanted[i][j]=='\n') break;
-            while (j<screen_columns && !issmall(screen_wanted[i][j])) j++;
+            while (j<screen_columns && !isletter(screen_wanted[i][j])) j++;
 
             string word;
             s=j;
-            while (j<screen_columns && issmall(screen_wanted[i][j])) {
+            while (j<screen_columns && isletter(screen_wanted[i][j])) {
                 word.pb(screen_wanted[i][j]);
                 j++;
             }
