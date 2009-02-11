@@ -83,12 +83,15 @@ extern vector<mevent> mevent_stack;
 // Commands definition
 
 // Design :
-// the editor interpret a string of int
+// the editor interpret 32 bits integer
+
 // 0->31        control commands
-// 32->127      normal ascii char, interpreted as if
+// 32->126      normal ascii char, interpreted as if
+// 127          converted to ^H 
 // 128->255     extended commands
+
 // higher       used for unicode char...
-//
+//              packed utf-8 encoding
 
 // Control macro
 #define CTRL(c)         ((c) & 0x1F)
@@ -98,53 +101,30 @@ extern vector<mevent> mevent_stack;
 #define KEY_TAB         CTRL('I')
 #define KEY_BACKSPACE   CTRL('H')
 #define KEY_ENTER       CTRL('M')
-// #define KEY_EOL         CTRL('J') // We can use this one
 
-// What would be nice to use
-// and their replacement for now
-
-#define CONTROL_I       CTRL('_')
-#define CONTROL_J       CTRL('^')
-#define CONTROL_M       CTRL(']')
+#define KEY_QUIT        CTRL('Q')
+#define KEY_SAVE        CTRL('S')
 
 #define KEY_DELETE      CTRL('D')
-#define KEY_INSERT      141         //CTRL('\\')
-
-// used for run length coding ??
-#define KEY_NULL        200         //CTRL('@')
-
-// to screen (used internaly to make a pos
-#define KEY_DISP        CTRL('\\')
-
-// not implemented yet
-// #define KEY_MACRO       CTRL('Z')
-
-// goto,
-// TODO: add flavour to go to begin/end of text
-// to given char ?
-#define KEY_GOTO        CTRL('G')
-
-// search stuff
-#define KEY_WORD        CTRL('Y')
-#define KEY_FIND        CTRL('W')
+#define KEY_INSERT      CTRL(']')
+#define KEY_OLINE       CTRL('O')
+#define KEY_JUSTIFY     CTRL('J')
 #define KEY_CASE        CTRL('Z')
 
+#define KEY_GOTO        CTRL('G')
+
+#define KEY_FIND        CTRL('W')
+#define KEY_FIRST       CTRL('Y')
 #define KEY_NEXT        CTRL('N')
 #define KEY_PREV        CTRL('P')
 
 #define KEY_END         CTRL('E')
 #define KEY_BEGIN       CTRL('A')
 
-#define KEY_OLINE       CTRL('O')
-
 #define KEY_MARK        CTRL('@')
-
 #define KEY_DLINE       CTRL('X')
-#define KEY_YLINE       CTRL('C')
+#define KEY_CLINE       CTRL('C')
 #define KEY_PRINT       CTRL('V')
-
-#define KEY_QUIT        CTRL('Q')
-#define KEY_SAVE        CTRL('S')
 
 #define KEY_UNDO        CTRL('U')
 #define KEY_REDO        CTRL('R')
@@ -152,11 +132,12 @@ extern vector<mevent> mevent_stack;
 
 #define KEY_KWORD       CTRL('K')
 #define KEY_DEND        CTRL('L')
+
 #define KEY_BWORD       CTRL('B')
 #define KEY_FWORD       CTRL('F')
 
-#define KEY_JUSTIFY     CTRL('J')
-
+// used for run length coding ??
+#define KEY_NULL        200
 
 // special commands
 
@@ -170,8 +151,6 @@ extern vector<mevent> mevent_stack;
 #define PAGE_UP         136
 #define PAGE_DOWN       137
 
-#define KEY_AI          CONTROL_M
-
 #define MOUSE_EVENT     132
 
 // xterm button code
@@ -181,6 +160,10 @@ extern vector<mevent> mevent_stack;
 #define MOUSE_RELEASE   3
 #define WHEEL_UP        64
 #define WHEEL_DOWN      65
+
+//Toggle Flag
+#define KEY_DISP        140
+#define KEY_AI          141
 
 //Function keys
 #define KEY_F1       KEY_DISP

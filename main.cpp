@@ -647,7 +647,7 @@ void yank_line() {
             i++;
         }
         c =text_getchar();
-    } while (c==KEY_YLINE);
+    } while (c==KEY_CLINE);
     replay=c;
 }
 
@@ -1150,18 +1150,21 @@ void text_kill_word() {
 //    reverse(selection.begin(),selection.end());
 }
 
-void text_delete_to_end() 
+void text_delete_to_end()
 {
     while (text[text_restart]!=EOL)
         text_delete();
 }
 
-void text_change_case() 
+
+// TODO: really bad undowise
+void text_change_case()
 {
     int i=text_restart;
     int c;
     if (text[i]>='a' && text[i]<='z') c = text[i]+'A'-'a';
     else if (text[i]>='A' && text[i]<='Z') c = text[i]-'A'-'a';
+    else return;
     text_delete();
     text_putchar(c);
 }
@@ -1225,7 +1228,7 @@ int insert()
 // Why we need this ? it is because of our line wrap policy ...
 // it is convenient to have it, like in nano.
 
-void justify() 
+void justify()
 {
     int i=text_gap;
     int last=-1;
@@ -1254,7 +1257,7 @@ void justify()
     while (i<text_end && text[i]!=EOL) {
         if (text[i]==' ') b=i;
         if (isok(text[i])) count++;
-        if (count>=75) {
+        if (count>=JUSTIFY) {
             if (b>0) text_move(b);
             else text_move(i);
             text_delete();
@@ -1386,7 +1389,8 @@ void replace() {
     int old=0;
     while (text_search_next()) {
         i++;
-        if (text_gap>=limit && (macro_end<limit || macro_end>=text_gap)) break;
+        if (text_gap>=limit && (macro_end<limit || macro_end>=text_gap))
+            break;
         old=text_gap;
         play_macro = yop;
         insert();
@@ -1401,7 +1405,8 @@ void replace() {
 }
 
 void macro_till() {
-    if (text_gap==macro_end && (macro_next==KEY_NEXT || macro_next==KEY_PREV))
+    if (text_gap==macro_end && (macro_next==KEY_NEXT ||
+                                macro_next==KEY_PREV))
         return replace();
     vector<int> yop = macro_data;
     yop.pb(KEY_NULL);
@@ -1476,7 +1481,7 @@ int move_command(char c)
             macro_next=KEY_NEXT;
             search=1;
             break;
-        case KEY_WORD:
+        case KEY_FIRST:
             search_first();macro_next=KEY_NEXT;
             search=1;
             break;
@@ -1513,7 +1518,7 @@ void text_select() {
         int c = text_getchar();
         if (move_command(c)) continue;
         switch (c) {
-            case KEY_YLINE : yank_select(mark);
+            case KEY_CLINE : yank_select(mark);
                              return;
             case KEY_DLINE : yank_select(mark);
                              del_select(mark);
@@ -1604,7 +1609,7 @@ int mainloop() {
                     b=0;
                 }
                 break;
-            case KEY_YLINE: yank_line();break;
+            case KEY_CLINE: yank_line();break;
             case KEY_DLINE: del_line();break;
             case KEY_PRINT: text_print();break;
             case KEY_OLINE: open_line_before();break;

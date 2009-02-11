@@ -754,7 +754,7 @@ void screen_restore()
 
 void screen_ppage() {
     int dest = text_l - screen_lines/2;
-    if (dest < 0) return;
+    if (dest < 0) dest=text_l;
     text_move(text_line_begin(dest));
     screen_set_first_line(dest - screen_lines/2);
     screen_refresh();
@@ -762,7 +762,7 @@ void screen_ppage() {
 
 void screen_npage() {
     int dest = text_l + screen_lines/2;
-    if (dest >= text_lines) return;
+    if (dest >= text_lines) dest=text_l;
     text_move(text_line_begin(dest));
     screen_set_first_line(dest - screen_lines/2);
     screen_refresh();

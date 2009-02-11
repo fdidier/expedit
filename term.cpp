@@ -12,7 +12,7 @@
 
 /* To remember original terminal attributes. */
 struct termios saved_attributes;
-     
+
 void term_get_size(uint &x, uint &y)
 {
         struct winsize ws;
@@ -33,18 +33,18 @@ void reset_input_mode (void)
         NOMOUSE;
         NOPASTEMODE;
         SHOW_CURSOR;
-        ENDSEQ; 
+        ENDSEQ;
         fflush(stdout);
 }
-     
+
 void set_input_mode (void)
 {
        struct termios tattr;
-     
+
        /* Save the terminal attributes so we can restore them later. */
        tcgetattr (STDIN_FILENO, &saved_attributes);
        //atexit (reset_input_mode);
-     
+
        /* Set the funny terminal modes. */
        tcgetattr (STDIN_FILENO, &tattr);
 
@@ -52,7 +52,7 @@ void set_input_mode (void)
        tattr.c_lflag &= ~(ISIG);            /* Ignore Signal  */
        tattr.c_oflag &= ~OPOST;             /* \n and \r unchanged on output */
        tattr.c_iflag &= ~(ICRNL|INLCR);     /* \n and \r unchanged on input  */
-       tattr.c_iflag &= ~(INPCK|ISTRIP|IGNCR|IXON|PARMRK); 
+       tattr.c_iflag &= ~(INPCK|ISTRIP|IGNCR|IXON|PARMRK);
 
        tattr.c_cc[VMIN] = 1;                /* One char at a time, no timeout */
        tattr.c_cc[VTIME] = 0;
@@ -87,8 +87,8 @@ char input_char;
 
 int shift_escape_sequence() {
     uchar c;
-    if (read(STDIN_FILENO, &c, 1) && c== ';') 
-    if (read(STDIN_FILENO, &c, 1) && c== '2') 
+    if (read(STDIN_FILENO, &c, 1) && c== ';')
+    if (read(STDIN_FILENO, &c, 1) && c== '2')
     if (read(STDIN_FILENO, &c, 1)) {
         switch(c) {
             case 'A' : return PAGE_UP;
@@ -98,7 +98,7 @@ int shift_escape_sequence() {
             case 'H' : return KEY_BEGIN;
             case 'F' : return KEY_END;
         }
-    } 
+    }
     return KEY_ESC;
 }
 
@@ -149,13 +149,13 @@ int mouse_sequence() {
     if (!read(STDIN_FILENO, &button, 1)) return KEY_ESC;
     if (!read(STDIN_FILENO, &x, 1)) return KEY_ESC;
     if (!read(STDIN_FILENO, &y, 1)) return KEY_ESC;
-    
+
     mevent event;
-    
+
     // 0 based from top left corner
     event.x = x - 33;
     event.y = y - 33;
-    
+
     // mouse button
     event.button = button - 32;
 
@@ -174,7 +174,7 @@ int function_keys() {
             default : return KEY_ESC;
         }
     }
-    return KEY_ESC;    
+    return KEY_ESC;
 }
 
 int escape_sequence()
@@ -200,7 +200,7 @@ int escape_sequence()
                                         case 'M' :
                                             a=mouse_sequence();
                                             break;
-                                        case 'A' : 
+                                        case 'A' :
                                                 a = KEY_UP;
                                                 break;
                                         case 'B' :
@@ -222,7 +222,7 @@ int escape_sequence()
                                                 a = shift_escape_sequence();
                                                 break;
                                         default :
-                                                a = tilde_escape_sequence(c); 
+                                                a = tilde_escape_sequence(c);
                                                 break;
                                 }
                         };
@@ -233,7 +233,7 @@ int escape_sequence()
         };
 
         /* disable the timeout on input */
-        tattr.c_cc[VTIME] = 0;   
+        tattr.c_cc[VTIME] = 0;
         tattr.c_cc[VMIN]  = 1;
         tcsetattr (STDIN_FILENO, TCSANOW, &tattr);
 
@@ -244,31 +244,30 @@ int escape_sequence()
 
 int term_getchar_internal()
 {
-        uchar c;
+    uchar c;
 
-        if (stored_char) {
-                stored_char = 0;
-                c = input_char; 
-        } else {
-                read (STDIN_FILENO, &c, 1);
-        }
+    if (stored_char) {
+        stored_char = 0;
+        c = input_char;
+    } else {
+        read (STDIN_FILENO, &c, 1);
+    }
 
-        if (c==KEY_ESC) 
-                return escape_sequence();
-        else    
-                return c;
+    if (c==KEY_ESC) return escape_sequence();
+    if (c==127) return KEY_BACKSPACE;
+    return c;
 }
 
-int term_getchar() 
+int term_getchar()
 {
     int ch= term_getchar_internal();
     uchar c = ch & 0xFF;
-    
+
     if ((c >> 7)&1) {
         /* compute utf8 encoding length */
         int l=0;
         while ((c >> (6-l))&1) l++;
-        
+
         /* compute corresponding int */
         fi (l) {
             c = term_getchar_internal() & 0xFF;
@@ -309,14 +308,14 @@ int bg_color      = WHITE;
 
 void term_putchar(int c, int color)
 {
-    /* deal with control caracter 
+    /* deal with control caracter
      * display a red capital letter instead
      */
     if (c<32) {
         c += 64;
         color = RED;
     }
-    
+
     int col = color & 0xFF;
     if (fg_color != col) {
         if (color == DEFAULT_COLOR)
@@ -325,7 +324,7 @@ void term_putchar(int c, int color)
             SET_FG_COLOR(col);
         fg_color = col;
     }
-    
+
     if ((color & REVERSE) && !video_reverse) {
         video_reverse=1;
         REVERSE_VIDEO;
