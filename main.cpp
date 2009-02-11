@@ -13,7 +13,8 @@ string          text_message;
 vector<int> selection;
 int search_highlight=0;
 
-int             text_modif=1;     // indicateur de modif...
+// indicateur de modif...
+int             text_modif=1;
 
 // **************************************************************
 // **************************************************************
@@ -128,7 +129,7 @@ int cache_end(int l) {
 // **************************************************************
 // **************************************************************
 
-int             text_blocsize = 1024;
+int text_blocsize = 1024;
 
 // check text size and realloc if needed
 // TODO : use realloc ?
@@ -200,13 +201,14 @@ void text_back()
 }
 
 // Put the cursor at a given position
+// NEW : the cursor can go to text_end
 // [i] must design a caracter stored in text
 // that is in [0,text_gap) or [text_restart,text_end)
 // Everything else should not happen.
 void text_internal_move(int i)
 {
     // assert that i is in range
-    if (i<0 || (i>=text_gap && i<text_restart) || i>=text_end) {
+    if (i<0 || (i>=text_gap && i<text_restart) || i>text_end) {
         text_message="wrong move!";
         return;
     }
@@ -323,7 +325,6 @@ void undo_start() {
 void edit_text() {
     text_modif++;
     text_saved=0;
-    search_highlight=0;
 }
 
 void text_putchar(int c)
@@ -360,13 +361,14 @@ void text_delete()
 /******************************************************/
 
 // Put the cursor at a given position
+// NEW : the cursor can go to text_end.
 // [i] must design a caracter stored in text
 // that is in [0,text_gap) or [text_restart,text_end)
 // Everything else should not happen.
 void text_move(int i)
 {
     // assert that i is in range
-    if (i<0 || (i>=text_gap && i<text_restart) || i>=text_end) {
+    if (i<0 || (i>=text_gap && i<text_restart) || i>text_end) {
         text_message="wrong move!";
         return;
     }
@@ -382,7 +384,8 @@ void text_absolute_move(int i)
     text_move(text_real_position(i));
 }
 
-void text_undo() {
+void text_undo()
+{
     undo_flush();
     if (undo_stack.empty()) return;
 
@@ -396,7 +399,8 @@ void text_undo() {
     } while (!undo_stack.empty() && op.mrk<0);
 }
 
-int text_redo() {
+int text_redo()
+{
     undo_flush();
     if (redo_stack.empty()) return 0;
 
@@ -631,8 +635,6 @@ int capitalise(int c)
 
 /*******************************************************************/
 // implementation of the commands
-
-vector<int> inserted;
 
 void yank_line() {
     selection.clear();
@@ -884,8 +886,7 @@ set< vector<int> > possibilities;
 map< vector<int> , vector<int> > last_completions;
 
 // Interface function for the completion
-// return the completion string : not needed for now.
-vector<int> text_complete()
+void text_complete()
 {
     undo_flush();
     possibilities.clear();
@@ -899,7 +900,7 @@ vector<int> text_complete()
     i++;
 
 //  not after a word? return.
-    if (i==text_gap) return end;
+    if (i==text_gap) return;
 
 //  [pos] always corresponds to the beginning of the last match
     int pos=i;
@@ -962,7 +963,7 @@ vector<int> text_complete()
                 } else {
                     // no more match,
                     // quit the completion functions
-                    return end;
+                    return;
                 }
             }
         } while (possibilities.find(end)!=possibilities.end());
@@ -980,7 +981,7 @@ vector<int> text_complete()
     if (!end.empty())
         last_completions[begin]=end;
 
-    return end;
+    return;
 }
 
 // ********************************************************
@@ -1007,13 +1008,14 @@ void restore_pos() {
 
 // Pattern is the current search pattern
 
-vector<int> user_search;
 vector<int> pattern;
 int display_pattern=0;
 
 // get id at current cursor position
 void get_id()
 {
+    vector<int> old_pattern = pattern;
+
     pattern.clear();
     pattern.pb(' ');
     int i=text_gap;
@@ -1028,12 +1030,17 @@ void get_id()
         i++;
     }
     pattern.pb(' ');
+
+    if (pattern.sz==2) pattern=old_pattern;
 }
 
 // search next occurrence of [pattern] from text_restart
+// [pattern] is the previous pattern if (search_highlight==1)
+// else it is the one returned by get_id()
 int text_search_next()
 {
-    if (pattern.empty()) get_id();
+    if (search_highlight==0) get_id();
+    search_highlight=1;
 
     int t = search_next(pattern,text_restart);
     if (t>0)  text_move(t);
@@ -1049,10 +1056,28 @@ int text_search_next()
     return 1;
 }
 
+// search first occurrence of [pattern]
+// [pattern] is the previous pattern if (search_highlight==1)
+// else it is the one returned by get_id()
+void search_first()
+{
+    if (search_highlight==0) get_id();
+    search_highlight=1;
+
+    // search for it
+    // starting at the beginning
+    text_move(0);
+    text_search_next();
+}
+
+
 // search previous occurrence of [pattern] from text_gap
+// [pattern] is the previous pattern if (search_highlight==1)
+// else it is the one returned by get_id()
 int text_search_prev()
 {
-    if (pattern.empty()) get_id();
+    if (search_highlight==0) get_id();
+    search_highlight=1;
 
     int t = search_prev(pattern,text_gap);
     if (t>=0)  text_move(t);
@@ -1069,8 +1094,11 @@ int text_search_prev()
 }
 
 // Let the user enter a new pattern
+// if empty use the old one...
 void text_new_search()
 {
+    search_highlight=1;
+    vector<int> old_pattern = pattern;
     pattern.clear();
     while (1) {
         if (pattern.empty()) {
@@ -1092,55 +1120,44 @@ void text_new_search()
             continue;
         }
         if (c==KEY_ENTER) {
- //           user_search = pattern;
             if (pattern.empty())
-                get_id();
+                pattern = old_pattern;
             text_search_next();
 
             break;
         }
- //       pattern = user_search;
         replay = c;
         break;
     }
     display_pattern=0;
 }
 
-// set pattern to the identificator under the cursor
-// and search for it.
-void search_id()
-{
-    save_pos();
-    get_id();
-
-    // search for it
-    // starting at the beginning
-    text_move(0);
-    text_search_next();
-}
-
 /******************************************************************/
 /******************************************************************/
 
 // TODO : regroup kill in selection ??
+// no selection ??
 void text_kill_word() {
-    selection.clear();
-    while (text_gap>0 && text[text_gap-1]==' ') {
-        selection.pb(text[text_gap-1]);
+//    selection.clear();
+    while (text_gap>0 && !isletter(text[text_gap-1])) {
+//        selection.pb(text[text_gap-1]);
         text_backspace();
     }
-    while (text_gap>0 && text[text_gap-1]!=' ' && text[text_gap-1]!=EOL) {
-        selection.pb(text[text_gap-1]);
+    while (text_gap>0 && isletter(text[text_gap-1])) {
+//        selection.pb(text[text_gap-1]);
         text_backspace();
     }
-    reverse(selection.begin(),selection.end());
+//    reverse(selection.begin(),selection.end());
 }
 
-void text_delete_to_end() {
-    while (text[text_restart]!=EOL) text_delete();
+void text_delete_to_end() 
+{
+    while (text[text_restart]!=EOL)
+        text_delete();
 }
 
-void text_change_case() {
+void text_change_case() 
+{
     int i=text_restart;
     int c;
     if (text[i]>='a' && text[i]<='z') c = text[i]+'A'-'a';
@@ -1149,10 +1166,8 @@ void text_change_case() {
     text_putchar(c);
 }
 
-// TODO : we do not need inserted ...
-// or do we ? to remove complete ?? in macro
-int insert() {
-    inserted.clear();
+int insert()
+{
     while (1) {
         int c = text_getchar();
         if (c==KEY_NULL) break;
@@ -1161,36 +1176,42 @@ int insert() {
             c=text_getchar();
             if (c!=EOL) {
                 text_putchar(c);
-                inserted.pb(c);
                 continue;
             }
         }
         if (isprint(c)) {
             text_putchar(c);
-            inserted.pb(c);
             continue;
         }
         if (c==KEY_BACKSPACE && !is_begin()) {
                 smart_backspace();
-                if (!inserted.empty())
-                    inserted.erase(inserted.end()-1);
                 continue;
         }
         if (c==KEY_DELETE && !is_end()) {
                 smart_delete();
                 continue;
         }
+        if (c==KEY_KWORD) {
+            text_kill_word();
+            continue;
+        }
+        if (c==KEY_DEND) {
+            text_delete_to_end();
+            continue;
+        }
+        if (c==KEY_CASE) {
+            text_change_case();
+            continue;
+        }
         if (c == KEY_TAB) {
             if (is_space_before()) {
                 insert_indent();
                 continue;
             } else {
-                vector<int> temp = text_complete();
-                fi (temp.sz) inserted.pb(temp[i]);
+                text_complete();
                 continue;
             }
         }
-        inserted.pb(EOL);
         replay = c;
         break;
     };
@@ -1204,7 +1225,8 @@ int insert() {
 // Why we need this ? it is because of our line wrap policy ...
 // it is convenient to have it, like in nano.
 
-void justify() {
+void justify() 
+{
     int i=text_gap;
     int last=-1;
     char c=text[text_restart];
@@ -1285,7 +1307,7 @@ int text_goto() {
             my_message.erase(my_message.end()-1);
             count--;
         } else if (c==KEY_ENTER) {
-            if (num>0) num = (num-1) % text_lines;
+            num = (num + text_lines - 1) % text_lines;
             int i=text_line_begin(num);
             text_move(i);
             line_goto(base_pos);
@@ -1302,6 +1324,7 @@ void text_up() {
     line_goto(base_pos);
     macro_next=KEY_UP;
 }
+
 void text_down() {
     text_move(next_eol()+1);
     line_goto(base_pos);
@@ -1445,36 +1468,42 @@ void text_next_word() {
 
 int move_command(char c)
 {
+    int search=0;
+    int base=1;
     switch (c) {
-        case KEY_UP: text_up();return 1;
-        case KEY_DOWN: text_down();return 1;
-        case KEY_GOTO: text_goto();return 1;
-    }
-    switch (c) {
+        case KEY_FIND:
+            text_new_search();
+            macro_next=KEY_NEXT;
+            search=1;
+            break;
+        case KEY_WORD:
+            search_first();macro_next=KEY_NEXT;
+            search=1;
+            break;
+        case KEY_NEXT:
+            text_search_next();macro_next=KEY_NEXT;
+            search=1;
+            break;
+        case KEY_PREV:
+            text_search_prev();macro_next=KEY_PREV;
+            search=1;
+            break;
+
+        case KEY_UP: text_up();base=0;break;
+        case KEY_DOWN: text_down();base=0;break;
+        case KEY_GOTO: text_goto();base=0;break;
+
         case KEY_BWORD : text_back_word();break;
         case KEY_FWORD : text_next_word();break;
         case KEY_BEGIN: text_move(prev_eol());break;
         case KEY_END: text_move(next_eol());break;
         case KEY_LEFT: text_move(text_gap-1);break;
         case KEY_RIGHT: text_move(text_restart+1);break;
-        case KEY_FIND:
-            text_new_search();
-            macro_next=KEY_NEXT;
-            search_highlight=1;
-            break;
-        case KEY_WORD:
-            search_highlight=1;search_id();macro_next=KEY_NEXT;
-            break;
-        case KEY_NEXT:
-            search_highlight=1;text_search_next();macro_next=KEY_NEXT;
-            break;
-        case KEY_PREV:
-            search_highlight=1;text_search_prev();macro_next=KEY_PREV;
-            break;
         default : return 0;
     }
-    base_pos = compute_pos();
-    //save_pos();
+
+    if (!search)search_highlight=0;
+    if (base) base_pos = compute_pos();
     return 1;
 }
 
@@ -1564,9 +1593,6 @@ int mainloop() {
         if (move_command(c)) continue;
         switch (c) {
             case KEY_AI : toggle_ai();break;
-            case KEY_CASE : text_change_case();break;
-            case KEY_KWORD : text_kill_word();break;
-            case KEY_DEND : text_delete_to_end();break;
 //            case KEY_ESC : restore_pos();break;
             case KEY_MARK: text_select();b=0;break;
             case KEY_UNDO: text_undo();break;
@@ -1755,9 +1781,53 @@ void save_info() {
 }
 
 // ********************************************************
+// to save selection
+
+void load_selection() {
+    ifstream s;
+    s.open(".fed.select");
+    if (!s) return;
+
+    selection.clear();
+    int ch;
+    char c;
+    while (s.get(c)) {
+        ch = uchar(c);
+        if ((c >> 7)&1) {
+            /* compute utf8 encoding length */
+            int l=0;
+            while ((c >> (6-l))&1) l++;
+
+            /* compute corresponding int */
+            fi (l) {
+                s.get(c);
+                ch ^= uchar(c) << (8*(i+1));
+            }
+        }
+        selection.push_back(ch);
+    }
+}
+
+void save_selection() {
+    ofstream s;
+    s.open(".fed.select");
+
+    for (int i=0; i<selection.sz; i++) {
+        // convert to utf-8
+        int temp = selection[i];
+        do {
+            s.put(temp);
+            temp>>=8;
+        } while (temp);
+    }
+    s.close();
+}
+
+// ********************************************************
 
 void text_exit() {
     reset_input_mode();
+    save_selection();
     save_info();
     if (text_saved==0) {
         text_write(newname);
@@ -1794,6 +1864,7 @@ int main(int argc, char **argv)
 
     // load file
     open_file();
+    load_selection();
 
     // init
     if (text_gap==0 || text[text_gap-1]!=EOL) {

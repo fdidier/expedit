@@ -506,17 +506,10 @@ void highlight_maj()
 
 void highlight_number()
 {
-    fi(screen_lines) {
-        for (int j=shift; j<screen_columns; j++) {
-            if (isnum(screen_wanted[i][j]) &&
-               (j==shift || !isletter(screen_wanted[i][j-1]))) {
-                    do {
-                        color_wanted[i][j] = RED;
-                        j++;
-                    } while (j<screen_columns && isnum(screen_wanted[i][j]));
-            }
-        }
-    }
+    fi(screen_lines)
+        for (int j=shift; j<screen_columns; j++)
+            if (isnum(screen_wanted[i][j]))
+                color_wanted[i][j] = RED;
 }
 
 void highlight_bracket()
@@ -618,6 +611,8 @@ void highlight_search()
         return;
 
     int size = pattern.sz;
+    if (size==0) return;
+
     if (pattern[0]==' ') size--;
     if (pattern[pattern.sz-1]==' ') size--;
 
@@ -650,7 +645,9 @@ void screen_highlight()
 {
     highlight_clear();
     highlight_bracket();
+//    highlight_maj();
     highlight_number();
+//    highlight_header();
     highlight_keywords();
     highlight_search();
     highlight_comment();

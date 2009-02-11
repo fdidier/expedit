@@ -1,1 +1,47 @@
 really alpha right now.
+
+commands :
+
+^Q quit
+^S save
+
+^U undo
+^R redo/repeat
+^T repeat till current line
+
+^A (begin) begin of line
+^E (end) end of line
+^B back one word
+^F forward one word
+
+^D (del) del character under cursor
+^H (backspace) del character before cursor
+
+^L del to end of line
+^K kill word before
+
+^@ (^space) start selection
+^C copy line/selection
+^X delete line/selection
+^V paste at cursor position
+
+^W enter search pattern
+^Y first occurence of search
+^N search next
+^P search previous
+
+^G goto line (or begin/end)
+^J justify
+^I (tab) indent/complete
+^M (enter)
+^[ (esc) jump to previous position
+^O open line before
+^Z change Case
+
+(insert) insert next char litteraly
+
+flag :
+
+F1  line number (+redraw)
+F2  auto indent
+F3  highligth search
