@@ -113,7 +113,6 @@ void screen_move_curs(int i, int j)
         }
     }
 
-
     if ((screen_real_i != i) || (screen_real_j != j)) {
         MOVE(i, j);
         screen_real_i = i;
@@ -151,9 +150,9 @@ void screen_dump_wanted(int a, int b)
 
         for (i=a; i<b; i++) {
                 j=0;
-                while (1) {
+                while (j<screen_columns) {
                         w = screen_wanted[i][j];
-                        if (w == '\n') {
+                        if (w == EOL) {
                                 if (i != (b-1)) screen_newl();
                                 break;
                         }
@@ -305,6 +304,7 @@ void compute_cursor_pos()
 
     // compute screen_wanted_j
     int l = text_gap - text_line_begin(text_l);
+    if (l<0) l = 0;
     screen_wanted_j = shift + min(l, int(screen_columns-shift-1));
 }
 
@@ -335,9 +335,17 @@ void screen_compute_wanted()
         // start by the line number
         int num = first_line + n + 1;
 
-        // display only if lines exist
-        if (num <= text_lines)
+        // line numbers,
+        // special case for the last line
+        if (num > text_lines)
         {
+            while (j+1<shift) {
+                screen_wanted[n][j]='-';
+                j++;
+            }
+            screen_wanted[n][j]=' ';
+            j++;
+        } else {
             while (j<shift) {
                 if (num==0 || j==0) {
                     screen_wanted[n][shift-1-j]= ' ';
@@ -347,7 +355,11 @@ void screen_compute_wanted()
                 }
                 j++;
             }
+        }
 
+        // display only if lines exist
+        if (num <= text_lines + 1)
+        {
             // beginning of the current line
             int i = text_line_begin(first_line + n);
             if (i==text_gap) i=text_restart;
@@ -439,13 +451,17 @@ void display_message()
 // ***********************************************************
 
 
+// TODO :
+// many of the highlight is just line based...
+// remenber if line didn't change ??
+
 void highlight_clear()
 {
     fi (screen_lines)
         fj (screen_columns)
             if (j+1<shift) {
                 color_wanted[i][j]=YELLOW;
-                if (i==screen_wanted_i) color_wanted[i][j] |= REVERSE;
+//                if (i==screen_wanted_i) color_wanted[i][j] |= REVERSE;
             } else {
                 color_wanted[i][j]=DEFAULT_COLOR;
             }
@@ -467,6 +483,7 @@ void highlight_comment()
             if (first) {
                 if (c==' ') continue;
                 if (c=='/') color = BLUE;
+                if (c=='*') color = BLUE;
                 if (c=='%') color = BLUE;
                 if (c=='#') color = MAGENTA;
                 first=0;
@@ -539,6 +556,8 @@ void highlight_number()
                 color_wanted[i][j] = RED;
 }
 
+// TODO : avoid comments and string
+// that is already colored text ...
 void highlight_bracket()
 {
     if (screen_wanted_i<0 || screen_wanted_i>=screen_lines) return;
@@ -699,23 +718,24 @@ void screen_sigwinch_handler(int sig)
 
 void screen_init()
 {
-        keyword["if"]=YELLOW;
-        keyword["fi"]=YELLOW;
-        keyword["fj"]=YELLOW;
-        keyword["else"]=YELLOW;
-        keyword["return"]=YELLOW;
-        keyword["break"]=YELLOW;
-        keyword["continue"]=YELLOW;
-        keyword["switch"]=YELLOW;
-        keyword["default"]=YELLOW;
-        keyword["case"]=YELLOW;
-        keyword["while"]=YELLOW;
-        keyword["do"]=YELLOW;
-        keyword["for"]=YELLOW;
-        keyword["struct"]=YELLOW;
-        keyword["sizeof"]=YELLOW;
-        keyword["new"]=YELLOW;
-        keyword["delete"]=YELLOW;
+        int color = GREEN;
+        keyword["if"]=color;
+        keyword["fi"]=color;
+        keyword["fj"]=color;
+        keyword["else"]=color;
+        keyword["return"]=color;
+        keyword["break"]=color;
+        keyword["continue"]=color;
+        keyword["switch"]=color;
+        keyword["default"]=color;
+        keyword["case"]=color;
+        keyword["while"]=color;
+        keyword["do"]=color;
+        keyword["for"]=color;
+        keyword["struct"]=color;
+        keyword["sizeof"]=color;
+        keyword["new"]=color;
+        keyword["delete"]=color;
 
 //        keyword["unsigned"]=GREEN;
 //        keyword["short"]=GREEN;

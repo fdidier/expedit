@@ -334,9 +334,10 @@ void term_putchar(int c, int color)
         NORMAL_VIDEO;
         SET_FG_COLOR(col);
     }
-
+    
     do {
-        putchar(c & 0xFF);
+        int t = (unsigned char) c & 0xFF;
+        putchar(t);
         c = c >> 8;
     } while(c);
 }
