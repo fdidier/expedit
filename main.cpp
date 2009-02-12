@@ -1757,7 +1757,7 @@ map<string, int> info;
 
 int load_info() {
     ifstream s;
-    s.open(".fed.info");
+    s.open("fed.info");
     if (!s) return 0;
 
     string name;
@@ -1774,7 +1774,7 @@ int load_info() {
 
 void save_info() {
     ofstream s;
-    s.open(".fed.info");
+    s.open("fed.info");
 
     info[filename]=text_gap;
     map<string, int>::iterator iter=info.begin();
@@ -1790,7 +1790,7 @@ void save_info() {
 
 void load_selection() {
     ifstream s;
-    s.open(".fed.select");
+    s.open("fed.select");
     if (!s) return;
 
     selection.clear();
@@ -1815,7 +1815,7 @@ void load_selection() {
 
 void save_selection() {
     ofstream s;
-    s.open(".fed.select");
+    s.open("fed.select");
 
     for (int i=0; i<selection.sz; i++) {
         // convert to utf-8

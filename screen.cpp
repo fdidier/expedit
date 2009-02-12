@@ -443,8 +443,9 @@ void highlight_clear()
 {
     fi (screen_lines)
         fj (screen_columns)
-            if (j<shift) {
+            if (j+1<shift) {
                 color_wanted[i][j]=YELLOW;
+                if (i==screen_wanted_i) color_wanted[i][j] |= REVERSE;
             } else {
                 color_wanted[i][j]=DEFAULT_COLOR;
             }
@@ -471,6 +472,32 @@ void highlight_comment()
                 first=0;
             }
             if (color) color_wanted[i][j] = color;
+        }
+    }
+}
+
+void highlight_string()
+{
+    fi(screen_lines) {
+        int in=0;
+        int start=0;
+        fj(screen_columns) {
+            int c = screen_wanted[i][j];
+            if (in) color_wanted[i][j] = RED;
+            if (c=='\\') {
+                j++;
+                if (in) color_wanted[i][j] = RED;
+                continue;
+            }
+            if (c=='\'' || c == '"') {
+                if (in == 0) {
+                    in = 1;
+                    start=c;
+                } else {
+                    if (c==start) in=0;
+                }
+                color_wanted[i][j] = RED;
+            }
         }
     }
 }
@@ -645,12 +672,13 @@ void screen_highlight()
 {
     highlight_clear();
     highlight_bracket();
-//    highlight_maj();
+    highlight_maj();
     highlight_number();
 //    highlight_header();
     highlight_keywords();
-    highlight_search();
+    highlight_string();
     highlight_comment();
+    highlight_search();
 }
 
 
@@ -689,14 +717,14 @@ void screen_init()
         keyword["new"]=YELLOW;
         keyword["delete"]=YELLOW;
 
-        keyword["unsigned"]=GREEN;
-        keyword["short"]=GREEN;
-        keyword["int"]=GREEN;
-        keyword["uint"]=GREEN;
-        keyword["char"]=GREEN;
-        keyword["string"]=GREEN;
-        keyword["double"]=GREEN;
-        keyword["void"]=GREEN;
+//        keyword["unsigned"]=GREEN;
+//        keyword["short"]=GREEN;
+//        keyword["int"]=GREEN;
+//        keyword["uint"]=GREEN;
+//        keyword["char"]=GREEN;
+//        keyword["string"]=GREEN;
+//        keyword["double"]=GREEN;
+//        keyword["void"]=GREEN;
 
         /* Initialize the terminal */
         term_init();
