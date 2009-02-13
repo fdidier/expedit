@@ -5,7 +5,7 @@ void term_get_size(unsigned int &x, unsigned int &y);
 void term_init();
 void term_reset();
 void term_pushback(uchar c);
-void term_putchar(int c, int color=0);
+void term_putchar(unsigned int c, int color=0);
 
 /* STYLE STUFF */
 
@@ -87,7 +87,7 @@ extern vector<mevent> mevent_stack;
 
 // 0->31        control commands
 // 32->126      normal ascii char, interpreted as if
-// 127          converted to ^H 
+// 127          converted to ^H
 // 128->255     extended commands
 
 // higher       used for unicode char...

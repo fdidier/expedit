@@ -12,7 +12,6 @@ char    *file_ext;
 // used to compute internal name
 char    *temp_name;
 
-
 int     text_saved;
 int     text_first_save=0;
 
@@ -283,6 +282,7 @@ vector<struct s_undo>    redo_stack;
 int undo_pos=-1;
 int undo_mrk=-1;
 int undo_last;
+int undo_jump;
 
 void undo_flush()
 {
@@ -314,6 +314,7 @@ void undo_flush()
     undo_stack.pb(op);
     undo_pos=-1;
     undo_mrk=-1;
+    undo_jump = text_gap;
 }
 
 void undo_savepos() {
@@ -1008,6 +1009,84 @@ void text_complete()
     return;
 }
 
+
+// Almost same as previous one ...
+void text_search_complete(vector<int> &str)
+{
+    possibilities.clear();
+    vector<int> begin;
+    vector<int> end;
+    possibilities.insert(end);
+
+//  do not complete if str is empty
+    if (str.empty()) return;
+
+
+//  set begin to str
+    if (str[0]!=' ') begin.pb(' ');
+    fi (str.sz)
+        begin.pb(str[i]);
+
+//  start wit cursor
+    int pos=text_restart;
+
+//  look first in the map
+    int c = KEY_TAB;
+    if (last_completions.find(begin)!=last_completions.end()) {
+        end = last_completions[begin];
+        possibilities.insert(end);
+        fi (end.sz) text_putchar(end[i]);
+        c = text_getchar();
+    }
+
+//  first search backward
+//  then from start...
+    int from_start=0;
+
+//  No match or user not happy,
+//  look in the text
+    while (c==KEY_TAB)
+    {
+        // remove current completion proposal
+        if (end.sz>0) {
+            fi (end.sz) str.pop_back();
+        }
+
+        // compute end
+        // use possibilities to not propose the same thing twice
+        do {
+            end.clear();
+
+            pos = search_next(begin, pos);
+            if (pos>=0) {
+                int i=pos;
+                while (isletter(text[i]) && i<text_end) {
+                    end.pb(text[i]);
+                    i++;
+                }
+            } else {
+                if (from_start) return;
+                from_start = 1;
+                pos = 0;
+            }
+        } while (possibilities.find(end)!=possibilities.end());
+
+        // use current end,
+        possibilities.insert(end);
+        fi (end.sz) str.push_back(end[i]);
+
+        c = text_getchar();
+    }
+    replay=c;
+
+    // save completed text in map
+    // except if it is empty
+    if (!end.empty())
+        last_completions[begin]=end;
+
+    return;
+}
+
 // ********************************************************
 
 // Save position and return to it
@@ -1146,10 +1225,11 @@ void text_new_search()
             continue;
         }
         if (c==KEY_BACKSPACE && !pattern.empty()) {
-            pattern.erase(pattern.end()-1);
+            pattern.pop_back();
             continue;
         }
         if (c==KEY_TAB) {
+            text_search_complete(pattern);
             // complete Rhhaa ...
             // difficult
             continue;
@@ -1543,8 +1623,21 @@ void text_select()
     }
 }
 
+// undo, or jump to text_gap after last
+// operation...
+void smart_undo()
+{
+    if (undo_jump != text_gap)
+        text_move(text_real_position(undo_jump));
+    else {
+        text_undo();
+        undo_jump=text_gap;
+    }
+}
+
 // save pos on any modification...
-int mainloop() {
+int mainloop()
+{
     int c=0;
     while (c!=KEY_QUIT)
     {
@@ -1563,7 +1656,7 @@ int mainloop() {
             case KEY_AI : toggle_ai();break;
 //            case KEY_ESC : restore_pos();break;
             case KEY_MARK: text_select();b=0;break;
-            case KEY_UNDO: text_undo();break;
+            case KEY_UNDO: smart_undo();break;
             case KEY_TILL: macro_till();b=0;save_pos();break;
             case KEY_REDO:
                 if (!text_redo()) {
@@ -1706,6 +1799,31 @@ int text_save()
     }
 }
 
+int utf_isvalid(unsigned int c)
+{
+    unsigned int t = c & 0xFF;
+    unsigned int l = 0;
+
+    // over long encoding
+    if (t==192 || t==193) return 0;
+    // too high
+    if (t>=245) return 0;
+
+    while ((t >> (7-l)) & 1) l++;
+
+    if (l==0 && (c>>8)) return 0;
+    if (l==1) return 0;
+    
+    for (int i=1; i<l; i++) {
+        c >>= 8;
+        t = c & 0xFF;
+        if (t>>6 != 2) return 0;
+    }
+    if (c>>8) return 0;
+
+    return 1;
+}
+
 int open_file()
 {
     /* Open file */
@@ -1717,25 +1835,41 @@ int open_file()
 
     /* Put file in gap buffer text */
     char c;
-    int ch;
     int temp=0;
-    while (inputStream.get(c)) {
-        ch = uchar(c);
-        if ((c >> 7)&1) {
-            /* compute utf8 encoding length */
-            int l=0;
-            while ((c >> (6-l))&1 && l<4) l++;
-            
-            // binary file ??
-            if (l==4) {
-                ch=0;
-                l=0;
-            }
 
-            /* compute corresponding int */
-            fi (l) {
-                inputStream.get(c);
-                ch ^= uchar(c) << (8*(i+1));
+    int l=0;
+    unsigned int ch;
+    unsigned int pending;
+
+    while (1)
+    {
+        if (l) {
+            ch = pending & 0xFF;
+            pending >>= 8;
+            l--;
+        } else {
+            if (!inputStream.get(c)) break;
+            ch = uchar(c);
+
+            if ((c >> 7)&1)
+            {
+                // compute utf8 encoding length
+                l=0;
+                while ((c >> (6-l))&1 && l<3) l++;
+
+                // compute corresponding int
+                fi (l) {
+                    if (!inputStream.get(c)) break;
+                    ch ^= uchar(c) << (8*(i+1));
+                }
+
+                // if not valid, just use individual char
+                if (utf_isvalid(ch)) {
+                    l = 0;
+                } else {
+                    pending = ch >> 8;
+                    ch &= 0xFF;
+                }
             }
         }
 
@@ -2003,6 +2137,7 @@ int main(int argc, char **argv)
     if (start_line>=0)
         text_move(text_line_begin(start_line-1));
     base_pos=compute_pos();
+    undo_jump=text_gap;
 
     // init screen
     // switch to fullscreen mode
@@ -2016,6 +2151,6 @@ int main(int argc, char **argv)
         mainloop();
     } while (!text_exit());
 
-    //  Thanks for using fed !
+    //  Thanks for using this editor !
     exit(0);
 }

@@ -306,7 +306,7 @@ int video_reverse = 0;
 int fg_color      = BLACK;
 int bg_color      = WHITE;
 
-void term_putchar(int c, int color)
+void term_putchar(unsigned int c, int color)
 {
     /* deal with control caracter
      * display a red capital letter instead
@@ -314,6 +314,10 @@ void term_putchar(int c, int color)
     if (c<32) {
         c += 64;
         color = RED;
+    }
+    if (c>126 && c<256) {
+        c = '@';
+        color = BLUE;
     }
 
     int col = color & 0xFF;
@@ -334,9 +338,9 @@ void term_putchar(int c, int color)
         NORMAL_VIDEO;
         SET_FG_COLOR(col);
     }
-    
+
     do {
-        int t = (unsigned char) c & 0xFF;
+        int t = c & 0xFF;
         putchar(t);
         c = c >> 8;
     } while(c);
