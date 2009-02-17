@@ -122,8 +122,8 @@ extern vector<mevent> mevent_stack;
 #define KEY_BEGIN       CTRL('A')
 
 #define KEY_MARK        CTRL('@')
-#define KEY_DLINE       CTRL('X')
-#define KEY_CLINE       CTRL('C')
+#define KEY_CUT         CTRL('X')
+#define KEY_COPY        CTRL('C')
 #define KEY_PRINT       CTRL('V')
 
 #define KEY_UNDO        CTRL('U')

@@ -134,7 +134,7 @@ int  tilde_escape_sequence(char c)
                 if (c == ';' && a==KEY_DELETE)
                     if (read(STDIN_FILENO, &c, 1) && c=='2')
                     if (read(STDIN_FILENO, &c, 1) && c=='~')
-                        return KEY_DLINE;
+                        return KEY_CUT;
         }
         return KEY_ESC;
 }

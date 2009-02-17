@@ -1,4 +1,6 @@
 really alpha right now.
+Work only on xterm compatible terminal.
+Syntax highligh is correct for C only.
 
 Commands :
 
@@ -48,7 +50,7 @@ Commands :
 (pgup) move by an half screen up
 (pgdown) move by an half screen down
 
-flag :
+Flags :
 
 F1  line number (+redraw)
 F2  auto indent

@@ -13,7 +13,6 @@ char    *file_ext;
 char    *temp_name;
 
 int     text_saved;
-int     text_first_save=0;
 
 string  text_message;
 
@@ -513,7 +512,9 @@ int base_pos;
 // return pos in the current line
 int compute_pos()
 {
-    return text_gap - line_begin();
+    int t=line_begin();
+    if (t==text_restart) return 0;
+    return text_gap - t;
 }
 
 // goto a given pos in the current line.
@@ -658,7 +659,7 @@ void yank_line()
             i++;
         }
         c =text_getchar();
-    } while (c==KEY_CLINE);
+    } while (c==KEY_COPY);
     replay=c;
 }
 
@@ -688,7 +689,7 @@ void del_line()
         text_delete();
 
         c = text_getchar();
-    } while (c==KEY_DLINE);
+    } while (c==KEY_CUT);
     replay = c;
 }
 
@@ -1606,9 +1607,9 @@ void text_select()
         int c = text_getchar();
         if (move_command(c)) continue;
         switch (c) {
-            case KEY_CLINE : yank_select(mark);
+            case KEY_COPY : yank_select(mark);
                              return;
-            case KEY_DLINE : yank_select(mark);
+            case KEY_CUT : yank_select(mark);
                              del_select(mark);
                              return;
             case KEY_PRINT : del_select(mark);
@@ -1665,8 +1666,8 @@ int mainloop()
                     b=0;
                 }
                 break;
-            case KEY_CLINE: yank_line();break;
-            case KEY_DLINE: del_line();break;
+            case KEY_COPY: yank_line();break;
+            case KEY_CUT: del_line();break;
             case KEY_PRINT: text_print();break;
             case KEY_OLINE: open_line_before();break;
             case KEY_JUSTIFY: justify();break;
@@ -1733,20 +1734,22 @@ void mouse_paste() {
 /* file handling                                                  */
 /******************************************************************/
 
-// rename file to file_dir/.fed/file_name.old
+// rename file to file_dir/.efk/file_name
+// problem : we lose the original file right
 int text_backup()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".fed/");
+    strcat(temp_name,".efk/");
     strcat(temp_name,file_name);
-    strcat(temp_name,".old");
 
-    // delete oldname file if it exists
+    // delete temp_name file if it exists
     remove(temp_name);
 
-    // change file_name ...
-    if (rename(file, temp_name)) {
-        return 0;
+    if (access(file,F_OK)==0) {
+        // change file_name ...
+        if (rename(file, temp_name)) {
+            return 0;
+        }
     }
     return 1;
 }
@@ -1774,20 +1777,16 @@ int text_write(char* name)
     return 1;
 }
 
-// save file, create .old file if it
-// is the first time we save.
+// save file, create backup file before
+// we actually overwrite the file
 int text_save()
 {
-    if (text_first_save==0) {
-        if (text_backup()) {
-            text_first_save=1;
-        } else {
-            text_message="Could not create .old file, press ^S to confirm save";
-            int c = text_getchar();
-            if (c!=KEY_SAVE) {
-                replay=c;
-                return 0;
-            }
+    if (!text_backup()) {
+        text_message="Could not create backup file, press ^S to confirm save";
+        int c = text_getchar();
+        if (c!=KEY_SAVE) {
+            replay=c;
+            return 0;
         }
     }
 
@@ -1813,7 +1812,7 @@ int utf_isvalid(unsigned int c)
 
     if (l==0 && (c>>8)) return 0;
     if (l==1) return 0;
-    
+
     for (int i=1; i<l; i++) {
         c >>= 8;
         t = c & 0xFF;
@@ -1902,9 +1901,6 @@ int open_file()
 
 int compute_name(char *argument)
 {
-    char s_old[]=".old";
-    char s_new[]=".new";
-
     int n=strlen(argument);
 
     file = argument;
@@ -1941,7 +1937,7 @@ int compute_name(char *argument)
     temp_name = (char *) malloc(n + 20);
 
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".fed/");
+    strcat(temp_name,".efk/");
     mkdir(temp_name,S_IRWXU);
 
 //    printf("%s\n",file);
@@ -1960,7 +1956,7 @@ map<string, int> info;
 int load_info()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".fed/info");
+    strcat(temp_name,".efk/info");
 
     ifstream s;
     s.open(temp_name);
@@ -1981,7 +1977,7 @@ int load_info()
 void save_info()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".fed/info");
+    strcat(temp_name,".efk/info");
 
     ofstream s;
     s.open(temp_name);
@@ -2002,7 +1998,7 @@ void save_info()
 void load_selection()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".fed/selection");
+    strcat(temp_name,".efk/selection");
 
     ifstream s;
     s.open(temp_name);
@@ -2033,7 +2029,7 @@ void save_selection()
     if (selection.sz==0) return;
 
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".fed/selection");
+    strcat(temp_name,".efk/selection");
 
     ofstream s;
     s.open(temp_name);
@@ -2056,7 +2052,7 @@ int text_exit()
     int ok=0;
     if (text_saved==0) {
         strcpy(temp_name,file_dir);
-        strcat(temp_name,".fed/");
+        strcat(temp_name,".efk/");
         strcat(temp_name,file_name);
 
         ok = text_write(temp_name);
@@ -2095,7 +2091,7 @@ int main(int argc, char **argv)
 {
     // exit if no file_name
     if (argc<2) {
-        cout << "please provide a file_name." << endl;
+        cout << "please provide a filename." << endl;
         exit(1);
     }
 
