@@ -9,7 +9,7 @@ Commands :
 
 ^U Undo
 ^R Redo/Repeat
-^T Repeat till current line
+^T repeat/replace Till current line/occurence
 
 ^A (begin) begin of line
 ^E (end) end of line
@@ -24,7 +24,7 @@ Commands :
 
 ^@ (^space) start Selection
 ^C copy line/selection
-^X delete line/selection
+^X cut line/selection
 ^V paste at cursor position
 
 ^W Where is : enter search pattern (previous one if empty)
