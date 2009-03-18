@@ -106,6 +106,7 @@ void screen_move_curs(int i, int j)
             HIDE_CURSOR;
             cursor_hiden=1;
         }
+        return;
     } else {
         if (cursor_hiden) {
             SHOW_CURSOR;
@@ -945,14 +946,14 @@ int mouse_handling()
                 move =0;
                 mouse_paste();
                 break;
-            case MOUSE_L :
-                if (select && inside(f_line,f_pos,l_line,l_pos,line,pos))
-                {
-                    // del
-                    int b,e;
-                    get_pos(f_line,f_pos,l_line,l_pos,b,e);
-                    mouse_delete(b,e);
-                } else {
+            case MOUSE_R :
+//                if (select && inside(f_line,f_pos,l_line,l_pos,line,pos))
+//                {
+//                    // del
+//                    int b,e;
+//                    get_pos(f_line,f_pos,l_line,l_pos,b,e);
+//                    mouse_delete(b,e);
+//                } else {
                     // move
                     text_move(text_line_begin(line));
                     line_goto(pos);
@@ -960,12 +961,12 @@ int mouse_handling()
                         screen_set_first_line(first_line-1);
                     if (e.y==screen_lines-1)
                         screen_set_first_line(first_line+1);
-                }
+//                }
                 select = 0;
                 mode = 0;
                 move =0;
                 break;
-            case MOUSE_R :
+            case MOUSE_L :
                 if (select && inside(f_line,f_pos,l_line,l_pos,line,pos))
                 {
                     // paste

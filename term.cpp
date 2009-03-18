@@ -167,6 +167,8 @@ int function_keys() {
     uchar c;
     if (read (STDIN_FILENO, &c, 1)) {
         switch (c) {
+            case 'H' : return KEY_BEGIN;
+            case 'F' : return KEY_END;
             case 'P' : return KEY_F1;
             case 'Q' : return KEY_F2;
             case 'R' : return KEY_F3;
@@ -198,8 +200,8 @@ int escape_sequence()
                         if (read (STDIN_FILENO, &c, 1)) {
                                 switch (c) {
                                         case 'M' :
-                                            a=mouse_sequence();
-                                            break;
+                                                a=mouse_sequence();
+                                                break;
                                         case 'A' :
                                                 a = KEY_UP;
                                                 break;

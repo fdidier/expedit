@@ -281,7 +281,7 @@ vector<struct s_undo>    redo_stack;
 int undo_pos=-1;
 int undo_mrk=-1;
 int undo_last;
-int undo_jump;
+//int undo_jump;
 
 void undo_flush()
 {
@@ -313,7 +313,7 @@ void undo_flush()
     undo_stack.pb(op);
     undo_pos=-1;
     undo_mrk=-1;
-    undo_jump = text_gap;
+//    undo_jump = text_gap;
 }
 
 void undo_savepos() {
@@ -641,6 +641,21 @@ int is_space_before()
 {
     int i=text_gap;
     return (i==0 || text[i-1]==EOL || text[i-1]==' ');
+}
+
+int is_letter_before()
+{
+    int i=text_gap-1;
+    return (i>=0 && isletter(text[i]));
+}
+
+int is_indent()
+{
+    int i=text_gap-1;
+    while (i>=0 && text[i]==' ') i--;
+
+    if (text[i]==EOL) return 1;
+    else 0;
 }
 
 /*******************************************************************/
@@ -1231,8 +1246,6 @@ void text_new_search()
         }
         if (c==KEY_TAB) {
             text_search_complete(pattern);
-            // complete Rhhaa ...
-            // difficult
             continue;
         }
         if (c==KEY_ENTER) {
@@ -1268,18 +1281,26 @@ void text_change_case()
 {
     int i=text_restart;
     int c;
-    if (text[i]>='a' && text[i]<='z') c = text[i]+'A'-'a';
-    else if (text[i]>='A' && text[i]<='Z') c = text[i]-'A'-'a';
+    if (text[i]>='a' && text[i]<='z') c = text[i]+'a'-'A';
+    else if (text[i]>='A' && text[i]<='Z') c = text[i]-'A'+'a';
     else return;
     text_delete();
     text_putchar(c);
 }
 
-void text_tab() {
-    if (is_space_before())
+//void text_tab() {
+//    if (is_space_before())
+//        insert_indent();
+//    else
+//        text_complete();
+//}
+
+void space_tab()
+{
+    if (is_indent())
         insert_indent();
     else
-        text_complete();
+        text_putchar(' ');
 }
 
 // This is what can be recorded in an
@@ -1289,7 +1310,8 @@ void insert()
     while (1)
     {
         int c = text_getchar();
-        if (isprint(c)) text_putchar(c);
+        if (c==' ') space_tab();
+        else if (isprint(c)) text_putchar(c);
         else switch (c)
         {
             case KEY_INSERT :
@@ -1318,7 +1340,16 @@ void insert()
             case KEY_KWORD: text_kill_word();break;
             case KEY_DEND: text_delete_to_end();break;
             case KEY_CASE: text_change_case();break;
-            case KEY_TAB: text_tab();break;
+            case KEY_TAB:
+                if (is_letter_before()) {
+                    text_complete();
+                    break;
+                } else {
+                    //replay=c;
+                    //return;
+                    insert_indent();
+                    break;
+                }
             default:
                 replay=c;
                 return;
@@ -1355,6 +1386,14 @@ void text_next_word()
     int i=text_restart;
     while (i<text_end && (!isletter(text[i]))) i++;
     while (i<text_end && isletter(text[i])) i++;
+    text_move(i);
+}
+
+void text_next_letter()
+{
+    int i=text_restart;
+    while (i<text_end && isletter(text[i])) i++;
+    while (i<text_end && (!isletter(text[i]))) i++;
     text_move(i);
 }
 
@@ -1554,9 +1593,10 @@ int move_command(char c)
         case KEY_DOWN: text_down();base=0;break;
         case KEY_GOTO: text_goto();base=0;break;
 
-        // Inline move than reset base pos
-        case KEY_BWORD : text_back_word();break;
-        case KEY_FWORD : text_next_word();break;
+        // Inline move that reset base pos
+        case KEY_TAB: text_next_letter();break;
+        case KEY_BWORD: text_back_word();break;
+        case KEY_FWORD: text_next_word();break;
         case KEY_BEGIN: text_move(line_begin());break;
         case KEY_END: text_move(next_eol());break;
         case KEY_LEFT: text_move(text_gap-1);break;
@@ -1628,12 +1668,12 @@ void text_select()
 // operation...
 void smart_undo()
 {
-    if (undo_jump != text_gap)
-        text_move(text_real_position(undo_jump));
-    else {
+//    if (undo_jump != text_gap)
+//        text_move(text_real_position(undo_jump));
+//    else {
         text_undo();
-        undo_jump=text_gap;
-    }
+//        undo_jump=text_gap;
+//    }
 }
 
 // save pos on any modification...
@@ -2133,7 +2173,7 @@ int main(int argc, char **argv)
     if (start_line>=0)
         text_move(text_line_begin(start_line-1));
     base_pos=compute_pos();
-    undo_jump=text_gap;
+//    undo_jump=text_gap;
 
     // init screen
     // switch to fullscreen mode

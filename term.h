@@ -168,6 +168,6 @@ extern vector<mevent> mevent_stack;
 //Function keys
 #define KEY_F1       KEY_DISP
 #define KEY_F2       KEY_AI
-#define KEY_F3       KEY_ESC
+#define KEY_F3       KEY_DISP
 #define KEY_F4       KEY_ESC
 
