@@ -135,6 +135,10 @@ int cache_end(int l) {
 
 // **************************************************************
 // **************************************************************
+// Maintain a list of jump position
+#define jump_size 10
+int jump_pos[jump_size]={-1};
+
 
 int text_blocsize = 1024;
 
@@ -160,6 +164,12 @@ void text_check(int l)
     fi (cache_size) {
         if (cache_pos[i]>=text_gap)
             cache_pos[i]+=num;
+    }
+
+    // update jump
+    fi (jump_size) {
+        if (jump_pos[i]>=text_gap)
+            jump_pos[i]+=num;
     }
 }
 
@@ -207,6 +217,32 @@ void text_back()
     }
 }
 
+// **************************************************************
+// **************************************************************
+
+// The jump postion are maintained as exact position in the text.
+// The only places we need to update them is on text_move
+// We also erase there the position not corresponding to real one anymore.
+void update_jump_on_move(int move)
+{
+    fi (jump_size) {
+        int p = jump_pos[i];
+        if (p>=text_gap && p<text_restart) jump_pos[i]=-1;
+        if (p>=move && p<text_gap) jump_pos[i] += text_restart - text_gap;
+        if (p>=text_restart && p<move) jump_pos[i] -= text_restart - text_gap;
+    }
+}
+
+void add_jump_pos(int pos)
+{
+    if (pos==jump_pos[0]) return;
+    fi (jump_size) {
+        int temp = jump_pos[i];
+        jump_pos[i] = pos;
+        pos = temp;
+    }
+}
+
 // Put the cursor at a given position
 // [i] must design a caracter stored in text
 // that is in [0,text_gap) or [text_restart,text_end)
@@ -218,6 +254,8 @@ void text_internal_move(int i)
         text_message= "internal wrong move ";
         return;
     }
+
+    update_jump_on_move(i);
 
     if (i<text_gap) {
         while (text_gap !=i) {
@@ -281,7 +319,6 @@ vector<struct s_undo>    redo_stack;
 int undo_pos=-1;
 int undo_mrk=-1;
 int undo_last;
-//int undo_jump;
 
 void undo_flush()
 {
@@ -313,7 +350,6 @@ void undo_flush()
     undo_stack.pb(op);
     undo_pos=-1;
     undo_mrk=-1;
-//    undo_jump = text_gap;
 }
 
 void undo_savepos() {
@@ -937,6 +973,7 @@ void text_complete()
 
 //  find begining of current word
     int i=text_gap-1;
+    while (i>=0 && !isletter(text[i])) i--;
     while (i>=0 && isletter(text[i])) i--;
     i++;
 
@@ -1101,24 +1138,6 @@ void text_search_complete(vector<int> &str)
         last_completions[begin]=end;
 
     return;
-}
-
-// ********************************************************
-
-// Save position and return to it
-// save as well screen state
-// Not clean when redoing stuff without screen ...
-
-int  saved_gap=-1;
-void save_pos() {
-    saved_gap = text_gap;
-    //screen_save();
-}
-
-void restore_pos() {
-    if (saved_gap<0) return;
-    text_absolute_move(saved_gap);
-   // screen_restore();
 }
 
 //******************************************
@@ -1310,8 +1329,8 @@ void insert()
     while (1)
     {
         int c = text_getchar();
-        if (c==' ') space_tab();
-        else if (isprint(c)) text_putchar(c);
+//        if (c==' ') space_tab();else
+        if (isprint(c)) text_putchar(c);
         else switch (c)
         {
             case KEY_INSERT :
@@ -1341,15 +1360,21 @@ void insert()
             case KEY_DEND: text_delete_to_end();break;
             case KEY_CASE: text_change_case();break;
             case KEY_TAB:
-                if (is_letter_before()) {
-                    text_complete();
-                    break;
-                } else {
-                    //replay=c;
-                    //return;
+//                if (is_letter_before()) {
+//                    text_complete();
+//                    break;
+//                } else {
+//                    //replay=c;
+//                    //return;
+//                    insert_indent();
+//                    break;
+//                }
+                if (is_indent()) {
                     insert_indent();
-                    break;
+                } else {
+                    text_complete();
                 }
+                break;
             default:
                 replay=c;
                 return;
@@ -1575,6 +1600,35 @@ int text_goto() {
 // ********************************************************
 // ********************************************************
 
+int is_pos_valid(int i)
+{
+    int p = jump_pos[i];
+    if (p==-1) return 0;
+    if (p>=text_gap && p<text_restart) return 0;
+    if (p>=text_end) return 0;
+    return 1;
+}
+
+void jump_interface()
+{
+    int i=0;
+    int c = KEY_JUMP;
+    int failsafe=0;
+    do {
+        failsafe++;
+        if (is_pos_valid(i) && jump_pos[i]!=text_restart) {
+            int temp = jump_pos[i];
+            jump_pos[i]=text_restart;
+            text_move(temp);
+            c = text_getchar();
+            failsafe=0;
+        }
+        i=(i+1)%jump_size;
+    } while (c==KEY_JUMP && failsafe!=jump_size);
+    if (failsafe==jump_size) return;
+    replay = c;
+}
+
 int move_command(char c)
 {
     int search=0;
@@ -1601,6 +1655,7 @@ int move_command(char c)
         case KEY_END: text_move(next_eol());break;
         case KEY_LEFT: text_move(text_gap-1);break;
         case KEY_RIGHT: text_move(text_restart+1);break;
+
 
         default : return 0;
     }
@@ -1664,45 +1719,39 @@ void text_select()
     }
 }
 
-// undo, or jump to text_gap after last
-// operation...
-void smart_undo()
-{
-//    if (undo_jump != text_gap)
-//        text_move(text_real_position(undo_jump));
-//    else {
-        text_undo();
-//        undo_jump=text_gap;
-//    }
-}
-
 // save pos on any modification...
 int mainloop()
 {
+    int first_move=1;
     int c=0;
     while (c!=KEY_QUIT)
     {
         // insert? + record?
         if (macro_record()) {
-            save_pos();
+            add_jump_pos(text_restart);
         }
 
         // other command to process
         int b=1;
         c = text_getchar();
 
-        if (move_command(c)) continue;
+        if (first_move) add_jump_pos(text_restart);
+        if (move_command(c)) {
+            first_move=0;
+            continue;
+        }
+        first_move=1;
 
         switch (c) {
+            case KEY_JUMP: jump_interface();break;
             case KEY_AI : toggle_ai();break;
 //            case KEY_ESC : restore_pos();break;
             case KEY_MARK: text_select();b=0;break;
-            case KEY_UNDO: smart_undo();break;
-            case KEY_TILL: macro_till();b=0;save_pos();break;
+            case KEY_UNDO: text_undo();break;
+            case KEY_TILL: macro_till();b=0;break;
             case KEY_REDO:
                 if (!text_redo()) {
                     macro_exec();
-                    save_pos();
                     b=0;
                 }
                 break;
@@ -1721,7 +1770,6 @@ int mainloop()
         }
         if (b) {
             base_pos=compute_pos();
-            save_pos();
         }
     }
 }

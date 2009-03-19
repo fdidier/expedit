@@ -79,10 +79,12 @@ extern int      display_pattern;
 extern vector<int> pattern;
 extern string   text_message;
 
+extern void      add_jump_pos(int pos);
+
 //extern void     screen_save();
 //extern void     screen_restore();
-//extern void     screen_npage();
-//extern void     screen_ppage();
+extern void     screen_npage();
+extern void     screen_ppage();
 
 extern void     screen_init();
 extern void     screen_redraw();

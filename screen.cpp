@@ -1047,8 +1047,10 @@ int screen_getchar() {
         return c;
     }
 
+    if (c==PAGE_UP || c==PAGE_DOWN) {
+        add_jump_pos(text_restart);
+    }
     while (1) {
-
         if (!debug.empty()) {
             text_message = debug;
             debug.clear();
