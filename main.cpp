@@ -44,7 +44,6 @@ int             text_end=0;
 int             text_lines=0;
 int             text_l=0;
 
-
 int text_real_position(int i)
 {
     if (i<text_gap) return i;
@@ -1401,16 +1400,20 @@ void text_down()
 void text_back_word()
 {
     int i=text_gap;
-    while (i>0 && (!isletter(text[i-1]))) i--;
+//    while (i>0 && (!isletter(text[i-1]))) i--;
+//    while (i>0 && isletter(text[i-1])) i--;
     while (i>0 && isletter(text[i-1])) i--;
+    while (i>0 && (!isletter(text[i-1]))) i--;
     text_move(i);
 }
 
 void text_next_word()
 {
     int i=text_restart;
-    while (i<text_end && (!isletter(text[i]))) i++;
+//    while (i<text_end && (!isletter(text[i]))) i++;
+//    while (i<text_end && isletter(text[i])) i++;
     while (i<text_end && isletter(text[i])) i++;
+    while (i<text_end && (!isletter(text[i]))) i++;
     text_move(i);
 }
 
@@ -1647,6 +1650,9 @@ int move_command(char c)
         case KEY_DOWN: text_down();base=0;break;
         case KEY_GOTO: text_goto();base=0;break;
 
+        case PAGE_UP: screen_ppage();line_goto(base_pos);base=0;break;
+        case PAGE_DOWN: screen_npage();line_goto(base_pos);base=0;break;
+
         // Inline move that reset base pos
         case KEY_TAB: text_next_letter();break;
         case KEY_BWORD: text_back_word();break;
@@ -1745,7 +1751,6 @@ int mainloop()
         switch (c) {
             case KEY_JUMP: jump_interface();break;
             case KEY_AI : toggle_ai();break;
-//            case KEY_ESC : restore_pos();break;
             case KEY_MARK: text_select();b=0;break;
             case KEY_UNDO: text_undo();break;
             case KEY_TILL: macro_till();b=0;break;
@@ -2221,7 +2226,6 @@ int main(int argc, char **argv)
     if (start_line>=0)
         text_move(text_line_begin(start_line-1));
     base_pos=compute_pos();
-//    undo_jump=text_gap;
 
     // init screen
     // switch to fullscreen mode

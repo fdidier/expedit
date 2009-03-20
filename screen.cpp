@@ -1047,9 +1047,6 @@ int screen_getchar() {
         return c;
     }
 
-    if (c==PAGE_UP || c==PAGE_DOWN) {
-        add_jump_pos(text_restart);
-    }
     while (1) {
         if (!debug.empty()) {
             text_message = debug;
@@ -1074,15 +1071,19 @@ int screen_getchar() {
         if (c==KEY_DISP) {
             screen_ol();
             screen_redraw();
-        } else if (c==PAGE_UP) {
-            screen_ppage();
-            continue;
-        } else if (c==PAGE_DOWN) {
-            screen_npage();
-            continue;
         } else {
             break;
         }
+        
+//         else if (c==PAGE_UP) {
+//            screen_ppage();
+//            continue;
+//        } else if (c==PAGE_DOWN) {
+//            screen_npage();
+//            continue;
+//        } else {
+//            break;
+//        }
     }
     return c;
 }

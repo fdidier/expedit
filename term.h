@@ -113,7 +113,7 @@ extern vector<mevent> mevent_stack;
 
 #define KEY_GOTO        CTRL('G')
 
-#define KEY_FIND        CTRL('W')
+#define KEY_FIND        CTRL('F')
 #define KEY_FIRST       CTRL('Y')
 #define KEY_NEXT        CTRL('N')
 #define KEY_PREV        CTRL('P')
@@ -121,7 +121,7 @@ extern vector<mevent> mevent_stack;
 #define KEY_END         CTRL('E')
 #define KEY_BEGIN       CTRL('A')
 
-#define KEY_MARK        CTRL('_')
+#define KEY_MARK        CTRL('@')
 #define KEY_CUT         CTRL('X')
 #define KEY_COPY        CTRL('C')
 #define KEY_PRINT       CTRL('V')
@@ -134,9 +134,9 @@ extern vector<mevent> mevent_stack;
 #define KEY_DEND        CTRL('L')
 
 #define KEY_BWORD       CTRL('B')
-#define KEY_FWORD       CTRL('F')
+#define KEY_FWORD       CTRL('W')
 
-#define KEY_JUMP        CTRL('@')
+#define KEY_JUMP        CTRL('\\')
 
 // used for run length coding ??
 #define KEY_NULL        200

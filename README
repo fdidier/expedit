@@ -1,6 +1,6 @@
 Really alpha right now.
 Work only on xterm compatible terminal.
-Syntax highligh is for C only.
+Syntax highligh is for C only and is not perfect.
 
 Commands :
 
@@ -14,12 +14,12 @@ Commands :
 ^A (begin) begin of line
 ^E (end) end of line
 ^B Back one word
-^F Forward one word
+^W forward one Word
 
 ^D (del) del character under cursor
 ^H (backspace) del character before cursor
 
-^L del to end of Line
+^L del to end of Line, what is Left.
 ^K Kill word before
 
 ^@ (^space) start Selection
@@ -27,10 +27,12 @@ Commands :
 ^X cut line/selection
 ^V paste at cursor position
 
-^W Where is : enter search pattern (previous one if empty)
+^F Find : enter search pattern (previous one if left empty)
 ^Y search first (current or id under cursor)
 ^N search Next (current or id under cursor)
 ^P search Previous (current or id under cursor)
+
+^\ Jump to previous interesting cursor position
 
 ^G Goto line (0 is the last one)
 ^J Justify
@@ -43,7 +45,6 @@ Commands :
 ^] (insert) insert next char litteraly
 
 ^_ ??
-^\ ??
 ^^ ??
 
 (arrow keys) move around
