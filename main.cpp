@@ -1299,7 +1299,7 @@ void text_change_case()
 {
     int i=text_restart;
     int c;
-    if (text[i]>='a' && text[i]<='z') c = text[i]+'a'-'A';
+    if (text[i]>='a' && text[i]<='z') c = text[i]-'a'+'A';
     else if (text[i]>='A' && text[i]<='Z') c = text[i]-'A'+'a';
     else return;
     text_delete();
@@ -1410,10 +1410,10 @@ void text_back_word()
 void text_next_word()
 {
     int i=text_restart;
-//    while (i<text_end && (!isletter(text[i]))) i++;
-//    while (i<text_end && isletter(text[i])) i++;
-    while (i<text_end && isletter(text[i])) i++;
     while (i<text_end && (!isletter(text[i]))) i++;
+    while (i<text_end && isletter(text[i])) i++;
+//    while (i<text_end && isletter(text[i])) i++;
+//    while (i<text_end && (!isletter(text[i]))) i++;
     text_move(i);
 }
 
