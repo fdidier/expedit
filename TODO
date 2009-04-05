@@ -1,7 +1,7 @@
 - Bug: file permission
 
-- clean the code
-
+- clean utf8 support (same code at many places)
+- use tools for dos/unix file type, encoding conversion ?
 - clean prev_search ?
 - save screen_pos in jump_pos ?
 - begin/end change lines ? (cool except if I want full macro... )
@@ -10,6 +10,4 @@
 
 - arrange text highlight
 - screen/mouse integration with main
-
-- write a proper README
 

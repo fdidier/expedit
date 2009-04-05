@@ -1,6 +1,6 @@
-Really alpha right now.
+The program is still in alpha version.
 Work only on xterm compatible terminal.
-Syntax highligh is for C only and is not perfect.
+Syntax highligh is for C style only and is not perfect.
 
 Commands :
 
@@ -9,7 +9,7 @@ Commands :
 
 ^U Undo
 ^R Redo/Repeat
-^T repeat/replace Till current line/occurence
+^T repeat Till current line/occurence
 
 ^A (begin) begin of line
 ^E (end) end of line
@@ -23,8 +23,8 @@ Commands :
 ^K Kill word before
 
 ^@ (^space) start Selection
-^C copy line/selection
-^X cut line/selection
+^C copy line(s)/selection
+^X cut line(s)/selection
 ^V paste at cursor position
 
 ^F Find : enter search pattern (previous one if left empty)
@@ -51,9 +51,27 @@ Commands :
 (pgup) move by an half screen up
 (pgdown) move by an half screen down
 
+Mouse :
+
+wheel : scroll view.
+left click : move cursor.
+left click+move : select.
+middle/right click : paste.
+
+X selection support through xclip.
+
 Flags :
 
 F1  line number (+redraw)
 F2  auto indent
-F3  ??
-F4  ??
+
+Notes :
+
+xxx store a file last state (previous save) in .xxx/file
+xxx store last selection in .xxx/selection
+xxx store last files position in .xxx/info
+
+Uppon execution, selection is read, and if the file
+appear in info, the cursor position is the same as
+last time.
+

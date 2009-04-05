@@ -1785,7 +1785,97 @@ int mainloop()
 // Clean this : mouse control from screen.cpp
 // we have to clean pgup/pgdown from screen.cpp too
 
+
+//if (c=='p') {
+//                char buffer[500];
+//                FILE *fd = popen("xclip -o","r");
+//                int s=fread(buffer,1,500,fd);
+//                fi (s) term_putchar(buffer[i]);
+//                fclose(fd);
+//           } else
+//           if (c=='a') {
+//                FILE *fd = popen("xclip","w");
+//                fprintf(fd,"yo");
+//                fclose(fd);
+
+const int X_buffer_size=1024;
+uchar X_buffer[X_buffer_size];
+
+void mouse_X_select(int b, int e)
+{
+    FILE *fd = popen("xclip 2>/dev/null","w");
+
+    if (fd==NULL) {
+        // even if the command is not there, fd is valid !
+        text_message="Unable to copy to X selection. Is xclip installed?";
+        return;
+    }
+
+    while (b<=e) {
+        int n=0;
+        while (b<=e && n+4<X_buffer_size) {
+            if (b==text_gap) b=text_restart;
+            int temp = text[b];
+            b++;
+            do {
+                X_buffer[n++] = temp & 0xFF;
+                temp >>=8;
+            } while (temp);
+        }
+
+        fwrite(X_buffer, 1, n, fd);
+    }
+    pclose(fd);
+}
+
+void mouse_X_paste()
+{
+    undo_flush();
+    undo_savepos();
+
+    FILE *fd = popen("xclip -o 2>/dev/null","r");
+    if (fd==NULL) {
+        // even if the command is not there, fd is valid !
+        text_message="Unable to get X selection. Is xclip installed?";
+        return;
+    }
+
+    int n;
+    int l=0;
+    int p=0;
+    int ch;
+    do {
+        n=fread(X_buffer,1,X_buffer_size,fd);
+
+        fi (n) {
+            uchar c=X_buffer[i];
+
+            if (p<l) {
+                ch ^= c << (8*(p+1));
+                p++;
+                if (p==l) {
+                    text_putchar(ch);
+                    p=l=0;
+                }
+                continue;
+            }
+
+            if ((c >> 7)&1) {
+                /* compute utf8 encoding length */
+                l=0;
+                while ((c >> (6-l))&1) l++;
+                ch = c;
+                continue;
+            }
+            text_putchar(c);
+        }
+    } while(n);
+
+    pclose(fd);
+}
+
 void mouse_select(int b, int e) {
+    mouse_X_select(b,e);
     selection.clear();
     while (b<=e) {
         if (b==text_gap) b=text_restart;
@@ -1818,9 +1908,10 @@ void mouse_delete(int b, int e)
 }
 
 void mouse_paste() {
-    undo_flush();
-    undo_savepos();
-    text_print();
+    mouse_X_paste();
+//    undo_flush();
+//    undo_savepos();
+//    text_print();
 }
 
 /******************************************************************/
@@ -1861,7 +1952,7 @@ int text_write(char* name)
         // convert to utf-8
         int temp = text[i];
         do {
-            s.put(temp);
+            s.put(temp & 0xFF);
             temp>>=8;
         } while (temp);
     }
@@ -2131,7 +2222,7 @@ void save_selection()
         // convert to utf-8
         int temp = selection[i];
         do {
-            s.put(temp);
+            s.put(temp & 0xFF);
             temp>>=8;
         } while (temp);
     }

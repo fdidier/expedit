@@ -840,7 +840,7 @@ string debug;
 // - left click inside, paste selection at cursor
 // - right click inside, del selection
 
-int mouse_highlight(int l1, int p1, int l2, int p2, int mode) {
+int mouse_highlight(int l1, int p1, int l2, int p2, int line_mode) {
     if (l1>l2) {
         swap(l1,l2);
         swap(p1,p2);
@@ -863,7 +863,7 @@ int mouse_highlight(int l1, int p1, int l2, int p2, int mode) {
     int jmax = p2 + shift;
     int end=0;
 
-    if (mode) {
+    if (line_mode) {
         j = shift;
         jmax = screen_columns;
     }
@@ -925,7 +925,7 @@ int mouse_handling()
     int select=0;
     int pending=0;
     int move=0;
-    int mode=0;
+    int line_mode=0;
     int f_pos;
     int f_line;
     int l_pos;
@@ -942,7 +942,7 @@ int mouse_handling()
             case MOUSE_M :
                 // paste
                 select = 0;
-                mode = 0;
+                line_mode = 0;
                 move =0;
                 mouse_paste();
                 break;
@@ -955,37 +955,50 @@ int mouse_handling()
 //                    mouse_delete(b,e);
 //                } else {
                     // move
-                    text_move(text_line_begin(line));
-                    line_goto(pos);
-                    if (e.y==0)
-                        screen_set_first_line(first_line-1);
-                    if (e.y==screen_lines-1)
-                        screen_set_first_line(first_line+1);
+//                    text_move(text_line_begin(line));
+//                    line_goto(pos);
+//                    if (e.y==0)
+//                        screen_set_first_line(first_line-1);
+//                    if (e.y==screen_lines-1)
+//                        screen_set_first_line(first_line+1);
 //                }
-                select = 0;
-                mode = 0;
-                move =0;
+                pending=1;
+                select=0;
+                move=1;
+                f_line = line;
+                f_pos = pos;
+                line_mode =0;
+                if (f_pos<0) {
+                    line_mode =1;
+                    move=0;
+                    select=1;
+                }
                 break;
             case MOUSE_L :
-                if (select && inside(f_line,f_pos,l_line,l_pos,line,pos))
-                {
+//                if (select && inside(f_line,f_pos,l_line,l_pos,line,pos)) {
+//                    int b,e;
+//                    get_pos(f_line,f_pos,l_line,l_pos,b,e);
+//                    mouse_delete(b,e);
+//                    move=pending=select=0;
+//                } else {
                     // paste
                     mouse_paste();
                     select = 0;
-                    mode = 0;
+                    line_mode = 0;
                     move =0;
-                } else {
-                    // select
-                    select = 1;
-                    pending = 1;
-                    f_line = line;
-                    f_pos = pos;
-                    mode =0;
-                    if (f_pos<0) {
-                        mode =1;
-                        move =1;
-                    }
-                }
+//                }
+//                } else {
+//                    // select
+//                    select = 1;
+//                    pending = 1;
+//                    f_line = line;
+//                    f_pos = pos;
+//                    line_mode =0;
+//                    if (f_pos<0) {
+//                        line_mode =1;
+//                        move =1;
+//                    }
+//                }
                 break;
             case WHEEL_UP :
                 screen_set_first_line(first_line-4);
@@ -995,6 +1008,14 @@ int mouse_handling()
                 break;
             case MOUSE_RELEASE :
                 pending = 0;
+                if (move) {
+                    text_move(text_line_begin(line));
+                    line_goto(pos);
+                    if (e.y==0)
+                        screen_set_first_line(first_line-1);
+                    if (e.y==screen_lines-1)
+                        screen_set_first_line(first_line+1);
+                }
                 if (select) {
                     // reorder points
                     if (l_line < f_line || (l_line == f_line && l_pos <= f_pos)) {
@@ -1002,7 +1023,7 @@ int mouse_handling()
                         swap(l_pos, f_pos);
                     }
 
-                    if (mode) {
+                    if (line_mode) {
                         f_pos = 0;
                         l_pos = screen_columns;
                     }
@@ -1016,17 +1037,18 @@ int mouse_handling()
         if (pending) {
             l_pos = pos;
             l_line = line;
-            if (l_pos != f_pos || l_line != f_line) move = 1;
         }
-        else if (select) {
+        if ( move && (l_pos != f_pos || l_line != f_line)) {
+             move = 0;
+             select = 1;
         }
-
+            
         compute_scroll_hint();
         screen_compute_wanted();
         screen_highlight();
         display_message();
         if (select)
-           mouse_highlight(f_line,f_pos,l_line,l_pos,mode);
+           mouse_highlight(f_line,f_pos,l_line,l_pos,line_mode);
         screen_make_it_real();
         screen_done();
 
@@ -1074,7 +1096,7 @@ int screen_getchar() {
         } else {
             break;
         }
-        
+
 //         else if (c==PAGE_UP) {
 //            screen_ppage();
 //            continue;
