@@ -67,9 +67,9 @@ F2  auto indent
 
 Notes :
 
-xxx store a file last state (previous save) in .xxx/file
-xxx store last selection in .xxx/selection
-xxx store last files position in .xxx/info
+fe store a file last state (previous save) in .fe/file
+fe store last selection in .fe/selection
+fe store last files position in .fe/info
 
 Uppon execution, selection is read, and if the file
 appear in info, the cursor position is the same as

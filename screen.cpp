@@ -1042,7 +1042,7 @@ int mouse_handling()
              move = 0;
              select = 1;
         }
-            
+
         compute_scroll_hint();
         screen_compute_wanted();
         screen_highlight();

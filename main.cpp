@@ -12,7 +12,6 @@ char    *file_ext;
 // used to compute internal name
 char    *temp_name;
 
-int     text_saved;
 
 string  text_message;
 
@@ -22,6 +21,7 @@ vector<int> selection;
 int     search_highlight=0;
 
 // indicateur de modif...
+int     text_saved;
 int     text_modif=1;
 
 // **************************************************************
@@ -33,7 +33,6 @@ int     text_modif=1;
 // the data is in [text] with index in
 // [0,text_gap)
 // [text_restart, text_end)
-
 vector<int>     text;
 int             text_gap=0;
 int             text_restart=0;
@@ -43,6 +42,9 @@ int             text_end=0;
 // and the line number of the cursor.
 int             text_lines=0;
 int             text_l=0;
+
+// **************************************************************
+// **************************************************************
 
 int text_real_position(int i)
 {
@@ -58,9 +60,11 @@ int text_absolute_position(int i)
 
 // **************************************************************
 // **************************************************************
-// Cache EOL number i
 
-#define  cache_size  50
+// Cache EOL number i
+// it goes into position i%cache_size of the cache.
+
+const int cache_size=50;
 int cache_num[cache_size]={0};
 int cache_pos[cache_size]={0};
 
@@ -110,36 +114,41 @@ void cache_line_delete(int l)
     } while (i!=m);
 }
 
-
-// real position of line begin
-int cache_begin(int l)
-{
-    if (l==0) return 0;
-    int i = l % cache_size;
-    if (cache_num[i]==l) {
-        int t = cache_pos[i] + 1;
-        if (t==text_gap) t = text_restart;
-        return t;
-    }
-    return -1;
-}
-
-// real position of line end
-int cache_end(int l) {
-    int i = (l+1) % cache_size;
-    if (cache_num[i] == l+1)
-        return cache_pos[i];
-    return -1;
-}
-
 // **************************************************************
 // **************************************************************
 // Maintain a list of jump position
-#define jump_size 10
+
+// this intialisation doesn't seems to work, check??
+const int jump_size=10;
 int jump_pos[jump_size]={-1};
 
+// The jump position are maintained as exact position in the text.
+// The only places we need to update them is on text_move
+// We also erase there the position not corresponding to real one anymore.
+void update_jump_on_move(int move)
+{
+    fi (jump_size) {
+        int p = jump_pos[i];
+        if (p>=text_gap && p<text_restart) jump_pos[i]=-1;
+        if (p>=move && p<text_gap) jump_pos[i] += text_restart - text_gap;
+        if (p>=text_restart && p<move) jump_pos[i] -= text_restart - text_gap;
+    }
+}
 
-int text_blocsize = 1024;
+void add_jump_pos(int pos)
+{
+    if (pos==jump_pos[0]) return;
+    fi (jump_size) {
+        int temp = jump_pos[i];
+        jump_pos[i] = pos;
+        pos = temp;
+    }
+}
+
+// **************************************************************
+// **************************************************************
+
+const int text_blocsize = 1024;
 
 // check text size and realloc if needed
 // TODO : use realloc ?
@@ -219,29 +228,6 @@ void text_back()
 // **************************************************************
 // **************************************************************
 
-// The jump postion are maintained as exact position in the text.
-// The only places we need to update them is on text_move
-// We also erase there the position not corresponding to real one anymore.
-void update_jump_on_move(int move)
-{
-    fi (jump_size) {
-        int p = jump_pos[i];
-        if (p>=text_gap && p<text_restart) jump_pos[i]=-1;
-        if (p>=move && p<text_gap) jump_pos[i] += text_restart - text_gap;
-        if (p>=text_restart && p<move) jump_pos[i] -= text_restart - text_gap;
-    }
-}
-
-void add_jump_pos(int pos)
-{
-    if (pos==jump_pos[0]) return;
-    fi (jump_size) {
-        int temp = jump_pos[i];
-        jump_pos[i] = pos;
-        pos = temp;
-    }
-}
-
 // Put the cursor at a given position
 // [i] must design a caracter stored in text
 // that is in [0,text_gap) or [text_restart,text_end)
@@ -249,7 +235,7 @@ void add_jump_pos(int pos)
 void text_internal_move(int i)
 {
     // assert that i is in range
-    if (i<0 || (i>=text_gap && i<text_restart) || i>text_end) {
+    if (i<0 || (i>=text_gap && i<text_restart) || i>=text_end) {
         text_message= "internal wrong move ";
         return;
     }
@@ -390,7 +376,7 @@ void text_backspace()
 
 void text_delete()
 {
-    if (text_restart+1>=text_end) return;
+    if (text_restart>=text_end) return;
     edit_text();
 
     if (undo_pos<text_gap) undo_start();
@@ -410,14 +396,13 @@ void text_delete()
 void text_move(int i)
 {
     // assert that i is in range
-    if (i<0 || (i>=text_gap && i<text_restart) || i>text_end) {
+    if (i<0 || (i>=text_gap && i<text_restart) || i>=text_end) {
         text_message= "wrong move ";
         return;
     }
 
     // we move so save current undo
     undo_flush();
-
     text_internal_move(i);
 }
 
@@ -447,76 +432,48 @@ int text_redo()
     if (redo_stack.empty()) return 0;
 
     struct s_undo op;
-    op=redo_stack.back();
     do {
+        op=redo_stack.back();
         text_apply(op);
         op.del=1-op.del;
         undo_stack.pb(op);
         redo_stack.pop_back();
-        if (redo_stack.empty()) break;
-        op=redo_stack.back();
-    } while (op.mrk<0);
+    } while (!redo_stack.empty() && op.mrk<0);
     return 1;
 }
 
 // **********************************************************
 // **********************************************************
 
-// return index of the next EOL
-int next_eol()
-{
-    int i=cache_end(text_l);
-    if (i>=0) return i;
-
-    i=text_restart;
-    while (i<text_end && text[i]!=EOL)
-        i++;
-
-    cache_add(i,text_l+1);
-    return i;
-}
-
-// return index just after the previous EOL
-// can't return text_gap anymore.
-// TODO : remove a lot of test ...
-int line_begin()
-{
-    int i=cache_begin(text_l);
-    if (i>=0) return i;
-
-    i=text_gap;
-    while (i>0 && text[i-1]!=EOL)
-        i--;
-
-    cache_add(text_l,i-1);
-    if (i==text_gap) i=text_restart;
-    return i;
-}
-
 // return the indice of the begining of the line l
 // in [0,gap[ [restart,end[
+// this is mainly used by the displaying part of the editor.
 int text_line_begin(int l)
 {
     // special case
     if (l>text_lines) l=text_lines;
-    if (l<0) return 0;
+    if (l<=0) return 0;
 
     // beginning cached ?
-    int res = cache_begin(l);
-    if (res>=0) return res;
+    if (cache_num[l % cache_size] == l) {
+        int t = cache_pos[l % cache_size] + 1;
+        if (t==text_gap) t = text_restart;
+        return t;
+    }
 
     // line num and line begin
     int n=0;
     int p=0;
 
-    // are we looking after text_restart ?
+    // are we looking before text_gap
+    // or after text_restart ?
     if (l>text_l) {
         n = text_l;
         p = text_restart;
 
-        // find the next EOL
-        while (n<l) {
-            while (text[p] != EOL) p++;
+        // find the next EOL and cache it
+        while (n<l && p<text_end) {
+            while (p<text_end && text[p] != EOL) p++;
             cache_add(n+1,p);
             n++;
             p++;
@@ -525,17 +482,39 @@ int text_line_begin(int l)
         n = text_l+1;
         p = text_gap;
 
-        // find the previous EOL
-        while (n>l) {
-            do {p--;} while (p>=0 && text[p] !=EOL);
+        // find the previous EOL and cache it
+        while (n>l && p>=0) {
+            do {
+                p--;
+            } while (p>=0 && text[p] !=EOL);
             n--;
             cache_add(n,p);
         }
         p++;
     }
 
-    // cache result and return
+    // return
+    if (p==text_gap) p=text_restart;
     return p;
+}
+
+int line_begin()
+{
+    return text_line_begin(text_l);
+}
+
+int line_end()
+{
+    int i = (text_l+1) % cache_size;
+    if (cache_num[i] == text_l+1)
+        return cache_pos[i];
+
+    i=text_restart;
+    while (i<text_end && text[i]!=EOL)
+        i++;
+
+    cache_add(text_l+1,i);
+    return i;
 }
 
 // **********************************************************
@@ -568,7 +547,7 @@ void line_goto(int pos)
 }
 
 /**************************************************/
-// Here is whre we get new char from screen and
+// Here is where we get new char from screen and
 // record them if we need to.
 /**************************************************/
 
@@ -659,6 +638,7 @@ int text_getchar()
 
 /*******************************************************************/
 // useful functions
+/*******************************************************************/
 
 int is_begin()
 {
@@ -703,7 +683,7 @@ void yank_line()
     text_move(line_begin());
     do {
         int i=text_gap;
-        text_move(next_eol()+1);
+        text_move(line_end()+1);
         while (i<text_gap) {
             selection.pb(text[i]);
             i++;
@@ -853,7 +833,7 @@ void toggle_ai()
 
 void open_line_after()
 {
-    text_move(next_eol());
+    text_move(line_end());
     smart_enter();
 }
 
@@ -1359,15 +1339,7 @@ void insert()
             case KEY_DEND: text_delete_to_end();break;
             case KEY_CASE: text_change_case();break;
             case KEY_TAB:
-//                if (is_letter_before()) {
-//                    text_complete();
-//                    break;
-//                } else {
-//                    //replay=c;
-//                    //return;
-//                    insert_indent();
-//                    break;
-//                }
+//                if (!is_letter_before()) {
                 if (is_indent()) {
                     insert_indent();
                 } else {
@@ -1393,7 +1365,7 @@ void text_up()
 
 void text_down()
 {
-    text_move(next_eol()+1);
+    text_move(line_end()+1);
     line_goto(base_pos);
 }
 
@@ -1658,7 +1630,7 @@ int move_command(char c)
         case KEY_BWORD: text_back_word();break;
         case KEY_FWORD: text_next_word();break;
         case KEY_BEGIN: text_move(line_begin());break;
-        case KEY_END: text_move(next_eol());break;
+        case KEY_END: text_move(line_end());break;
         case KEY_LEFT: text_move(text_gap-1);break;
         case KEY_RIGHT: text_move(text_restart+1);break;
 
@@ -1785,19 +1757,6 @@ int mainloop()
 // Clean this : mouse control from screen.cpp
 // we have to clean pgup/pgdown from screen.cpp too
 
-
-//if (c=='p') {
-//                char buffer[500];
-//                FILE *fd = popen("xclip -o","r");
-//                int s=fread(buffer,1,500,fd);
-//                fi (s) term_putchar(buffer[i]);
-//                fclose(fd);
-//           } else
-//           if (c=='a') {
-//                FILE *fd = popen("xclip","w");
-//                fprintf(fd,"yo");
-//                fclose(fd);
-
 const int X_buffer_size=1024;
 uchar X_buffer[X_buffer_size];
 
@@ -1918,17 +1877,18 @@ void mouse_paste() {
 /* file handling                                                  */
 /******************************************************************/
 
-// rename file to file_dir/.efk/file_name
+// rename file to file_dir/.fe/file_name
 // problem : we lose the original file right
 int text_backup()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".efk/");
+    strcat(temp_name,".fe/");
     strcat(temp_name,file_name);
 
     // delete temp_name file if it exists
     remove(temp_name);
 
+    // If file exist
     if (access(file,F_OK)==0) {
         // change file_name ...
         if (rename(file, temp_name)) {
@@ -2120,15 +2080,10 @@ int compute_name(char *argument)
     // our file should always have a name length < 20
     temp_name = (char *) malloc(n + 20);
 
-    strcpy(temp_name,file_dir);
-    strcat(temp_name,".efk/");
-    mkdir(temp_name,S_IRWXU);
-
 //    printf("%s\n",file);
 //    printf("%s\n",file_name);
 //    printf("%s\n",file_dir);
 //    printf("%s\n",file_ext);
-//    printf("%s\n",temp_name);
 }
 
 // ********************************************************
@@ -2140,7 +2095,7 @@ map<string, int> info;
 int load_info()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".efk/info");
+    strcat(temp_name,".fe/info");
 
     ifstream s;
     s.open(temp_name);
@@ -2161,7 +2116,7 @@ int load_info()
 void save_info()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".efk/info");
+    strcat(temp_name,".fe/info");
 
     ofstream s;
     s.open(temp_name);
@@ -2182,7 +2137,7 @@ void save_info()
 void load_selection()
 {
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".efk/selection");
+    strcat(temp_name,".fe/selection");
 
     ifstream s;
     s.open(temp_name);
@@ -2213,7 +2168,7 @@ void save_selection()
     if (selection.sz==0) return;
 
     strcpy(temp_name,file_dir);
-    strcat(temp_name,".efk/selection");
+    strcat(temp_name,".fe/selection");
 
     ofstream s;
     s.open(temp_name);
@@ -2236,7 +2191,7 @@ int text_exit()
     int ok=0;
     if (text_saved==0) {
         strcpy(temp_name,file_dir);
-        strcat(temp_name,".efk/");
+        strcat(temp_name,".fe/");
         strcat(temp_name,file_name);
 
         ok = text_write(temp_name);
@@ -2266,6 +2221,8 @@ int text_exit()
 
 void terminate(int param)
 {
+    // so we are sure to quit even if no backup
+    // could be created.
     replay=KEY_QUIT;
     text_exit();
     exit(1);
@@ -2281,6 +2238,11 @@ int main(int argc, char **argv)
 
     // parse file name
     compute_name(argv[1]);
+
+    // create .fe/ if it doesn't exist
+    strcpy(temp_name,file_dir);
+    strcat(temp_name,".fe/");
+    mkdir(temp_name,S_IRWXU);
 
     // basic option
     int start_line=-1;
