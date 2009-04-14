@@ -85,7 +85,10 @@ void screen_clear()
         CLEAR_ALL;
 
         for (uint i=0; i<screen_lines; i++) {
-                screen_real[i][0]='\n';
+            for (uint j=0; j<screen_columns; j++) {
+                screen_real[i][j]='\n';
+                color_real[i][j]=0;
+            }
         }
 
         HOME;
@@ -260,8 +263,7 @@ void screen_done()
 int shift=0;
 int opt_line=1;
 
-int saved_first_line;
-
+// set first_line using the hint
 void screen_set_first_line(int hint)
 {
     if (hint<0) hint=0;
@@ -274,6 +276,7 @@ void screen_set_first_line(int hint)
 void screen_movement_hint()
 {
     // current line if we use the same first line
+    // or the wanted one.
     int temp = int(text_l)-int(first_line);
 
     if (temp<=0) {
@@ -290,6 +293,7 @@ void screen_movement_hint()
 }
 
 // Compute scroll hint to speed up display
+int saved_first_line;
 void compute_scroll_hint()
 {
     screen_scroll_hint = first_line - saved_first_line;
@@ -789,24 +793,16 @@ void screen_refresh()
 
 int saved_line;
 
-void screen_save()
+int screen_get_first_line()
 {
-    saved_line=first_line;
+    return first_line;
 }
-
-void screen_restore()
-{
-    screen_set_first_line(saved_line);
-    screen_redraw();
-}
-
 
 void screen_ppage() {
     int dest = text_l - screen_lines/2;
     if (dest < 0) dest=text_l;
     text_move(text_line_begin(dest));
     screen_set_first_line(dest - screen_lines/2);
-    screen_refresh();
 }
 
 void screen_npage() {
@@ -814,7 +810,6 @@ void screen_npage() {
     if (dest >= text_lines) dest=text_l;
     text_move(text_line_begin(dest));
     screen_set_first_line(dest - screen_lines/2);
-    screen_refresh();
 }
 
 void screen_ol() {

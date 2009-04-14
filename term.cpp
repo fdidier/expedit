@@ -31,8 +31,8 @@ void reset_input_mode (void)
 {
         tcsetattr (STDIN_FILENO, TCSANOW, &saved_attributes);
         NOMOUSE;
-        NOPASTEMODE;
         SHOW_CURSOR;
+        NORMAL_VIDEO;
         ENDSEQ;
         fflush(stdout);
 }
@@ -61,7 +61,7 @@ void set_input_mode (void)
 
        INISEQ;
        SETMOUSE;
-       PASTEMODE;
+       NORMAL_VIDEO;
        fflush(stdout);
 }
 
@@ -305,8 +305,8 @@ void term_reset()
 }
 
 int video_reverse = 0;
-int fg_color      = BLACK;
-int bg_color      = WHITE;
+int fg_color      = -1;
+int bg_color      = -1;
 
 void term_putchar(unsigned int c, int color)
 {

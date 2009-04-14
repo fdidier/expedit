@@ -15,6 +15,7 @@ char    *temp_name;
 // selection
 vector<int> selection;
 
+// interface with screen
 int     search_highlight=0;
 string  text_message;
 
@@ -119,6 +120,7 @@ void cache_line_delete(int l)
 // this intialisation doesn't seems to work, check??
 const int jump_size=10;
 int jump_pos[jump_size]={-1};
+int jump_screen[jump_size];
 
 // The jump position are maintained as exact position in the text.
 // The only places we need to update them is on text_move
@@ -135,11 +137,11 @@ void update_jump_on_move(int move)
 
 void add_jump_pos(int pos)
 {
+    int first_line = screen_get_first_line();
     if (pos==jump_pos[0]) return;
     fi (jump_size) {
-        int temp = jump_pos[i];
-        jump_pos[i] = pos;
-        pos = temp;
+        swap(jump_pos[i],pos);
+        swap(jump_screen[i],first_line);
     }
 }
 
@@ -1283,11 +1285,11 @@ void text_change_case()
     text_putchar(c);
 }
 
-void text_tab() 
+void text_tab()
 {
-    if (is_indent()) 
+    if (is_indent())
         insert_indent();
-    else 
+    else
         text_complete();
 }
 
@@ -1579,19 +1581,20 @@ void jump_interface()
 {
     int i=0;
     int c = KEY_JUMP;
-    int failsafe=0;
-    do {
-        failsafe++;
+    while (c==KEY_JUMP && i<jump_size) {
         if (is_pos_valid(i) && jump_pos[i]!=text_restart) {
             int temp = jump_pos[i];
             jump_pos[i]=text_restart;
             text_move(temp);
+
+            temp = jump_screen[i];
+            jump_screen[i]=screen_get_first_line();
+            screen_set_first_line(temp);
+
             c = text_getchar();
-            failsafe=0;
         }
-        i=(i+1)%jump_size;
-    } while (c==KEY_JUMP && failsafe!=jump_size);
-    if (failsafe==jump_size) return;
+        i++;
+    }
     replay = c;
 }
 
@@ -2019,7 +2022,7 @@ int open_file()
         }
     }
 
-    // close file 
+    // close file
     inputStream.close();
 
     return 1;
@@ -2070,6 +2073,7 @@ int compute_name(char *argument)
 
 // ********************************************************
 // to remember last line
+// TODO : add screen_first_line ?
 // ********************************************************
 
 map<string, int> info;
