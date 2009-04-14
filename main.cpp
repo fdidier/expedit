@@ -12,13 +12,11 @@ char    *file_ext;
 // used to compute internal name
 char    *temp_name;
 
-
-string  text_message;
-
 // selection
 vector<int> selection;
 
 int     search_highlight=0;
+string  text_message;
 
 // indicateur de modif...
 int     text_saved;
@@ -350,6 +348,7 @@ void undo_start() {
 
 // ******************************************************
 // same as above but with undo support
+// ******************************************************
 
 void edit_text() {
     text_modif++;
@@ -535,8 +534,6 @@ int compute_pos()
 void line_goto(int pos)
 {
     int i=line_begin();
-//    if (i==text_gap) i=text_restart;
-
     int p=0;
     while (p<pos && i<text_end && text[i]!=EOL) {
         i++;
@@ -1286,12 +1283,13 @@ void text_change_case()
     text_putchar(c);
 }
 
-//void text_tab() {
-//    if (is_space_before())
-//        insert_indent();
-//    else
-//        text_complete();
-//}
+void text_tab() 
+{
+    if (is_indent()) 
+        insert_indent();
+    else 
+        text_complete();
+}
 
 void space_tab()
 {
@@ -1308,7 +1306,7 @@ void insert()
     while (1)
     {
         int c = text_getchar();
-//        if (c==' ') space_tab();else
+        if (c==' ') space_tab();else
         if (isprint(c)) text_putchar(c);
         else switch (c)
         {
@@ -1338,14 +1336,7 @@ void insert()
             case KEY_KWORD: text_kill_word();break;
             case KEY_DEND: text_delete_to_end();break;
             case KEY_CASE: text_change_case();break;
-            case KEY_TAB:
-//                if (!is_letter_before()) {
-                if (is_indent()) {
-                    insert_indent();
-                } else {
-                    text_complete();
-                }
-                break;
+            case KEY_TAB: text_tab();break;
             default:
                 replay=c;
                 return;
@@ -1433,7 +1424,7 @@ void justify()
     int b=-1;
     while (i<text_end && text[i]!=EOL) {
         if (text[i]==' ') b=i;
-        if (isok(text[i])) count++;
+        count++;
         if (count>=JUSTIFY) {
             if (b>0) text_move(b);
             else text_move(i);
@@ -1877,32 +1868,47 @@ void mouse_paste() {
 /* file handling                                                  */
 /******************************************************************/
 
-// rename file to file_dir/.fe/file_name
-// problem : we lose the original file right
+// copy file to file_dir/.fe/file_name
 int text_backup()
 {
+    if (access(file,F_OK)!=0) return 1;
+
     strcpy(temp_name,file_dir);
     strcat(temp_name,".fe/");
     strcat(temp_name,file_name);
 
-    // delete temp_name file if it exists
-    remove(temp_name);
+    const int buf_size=1024;
+    uchar buf[buf_size];
 
-    // If file exist
-    if (access(file,F_OK)==0) {
-        // change file_name ...
-        if (rename(file, temp_name)) {
-            return 0;
+    int res=1;
+
+    FILE *src = fopen(file,"rb");
+    FILE *dst = fopen(temp_name,"wb");
+
+    int num=0;
+    if (src!=NULL && dst != NULL)
+    do {
+        num = fread(buf, sizeof(uchar), buf_size, src);
+        if (num==0 && ferror(src)) {
+            res = 0;
+            break;
         }
-    }
-    return 1;
+        if (fwrite(buf, sizeof(uchar), num, dst) < num) {
+            res = 0;
+            break;
+        }
+    } while (num>0);
+
+    if (src==NULL || fclose(src) == EOF) res=0;
+    if (dst==NULL || fclose(dst) == EOF) res=0;
+
+    return res;
 }
 
 // open file and write new content
 int text_write(char* name)
 {
-    ofstream s;
-    s.open(name,ios_base::trunc);
+    ofstream s(name,ios_base::trunc);
     if (!s) return 0;
 
     fi (text_end) {
@@ -1919,27 +1925,6 @@ int text_write(char* name)
 
     s.close();
     return 1;
-}
-
-// save file, create backup file before
-// we actually overwrite the file
-int text_save()
-{
-    if (!text_backup()) {
-        text_message="Could not create backup file, press ^S to confirm save";
-        int c = text_getchar();
-        if (c!=KEY_SAVE) {
-            replay=c;
-            return 0;
-        }
-    }
-
-    if (text_write(file)) {
-        text_message="File saved";
-        text_saved=1;
-    } else {
-        text_message="Could not save file";
-    }
 }
 
 int utf_isvalid(unsigned int c)
@@ -1970,11 +1955,8 @@ int utf_isvalid(unsigned int c)
 int open_file()
 {
     /* Open file */
-    ifstream inputStream;
-    inputStream.open(file);
-    if (!inputStream) {
-        return 0;
-    }
+    ifstream inputStream(file);
+    if (!inputStream) return 0;
 
     /* Put file in gap buffer text */
     char c;
@@ -2037,7 +2019,7 @@ int open_file()
         }
     }
 
-    /* close file */
+    // close file 
     inputStream.close();
 
     return 1;
@@ -2138,9 +2120,7 @@ void load_selection()
 {
     strcpy(temp_name,file_dir);
     strcat(temp_name,".fe/selection");
-
-    ifstream s;
-    s.open(temp_name);
+    ifstream s(temp_name);
     if (!s) return;
 
     selection.clear();
@@ -2161,6 +2141,7 @@ void load_selection()
         }
         selection.push_back(ch);
     }
+    s.close();
 }
 
 void save_selection()
@@ -2169,9 +2150,8 @@ void save_selection()
 
     strcpy(temp_name,file_dir);
     strcat(temp_name,".fe/selection");
-
-    ofstream s;
-    s.open(temp_name);
+    ofstream s(temp_name);
+    if (!s) return;
 
     for (int i=0; i<selection.sz; i++) {
         // convert to utf-8
@@ -2185,6 +2165,29 @@ void save_selection()
 }
 
 // ********************************************************
+
+// save file, create backup file before
+// we actually overwrite the file
+int text_save()
+{
+    if (!text_backup()) {
+        text_message="Could not create backup file, press ^S to confirm save";
+        int c = text_getchar();
+        if (c!=KEY_SAVE) {
+            replay=c;
+            return 0;
+        }
+    }
+
+    if (text_write(file)) {
+        text_message="File saved";
+        text_saved=1;
+    } else {
+        text_message="Could not save file";
+        return 0;
+    }
+    return 1;
+}
 
 int text_exit()
 {

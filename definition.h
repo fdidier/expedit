@@ -42,7 +42,6 @@ typedef vector<string>  VS;
 #define sz          size()
 
 /* text macro */
-#define isok(c)      ((uchar)(c)<0x80 || (uchar)(c)>0xBF)
 #define isprint(c)   (((c)>=32 && (c)<128) || (c)>=256)
 #define issmall(c)   ((c)>='a' && (c)<='z')
 #define isbig(c)     ((c)>='A' && (c)<='Z')
