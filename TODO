@@ -1,13 +1,8 @@
-- Bug: file permission
-
-- clean utf8 support (same code at many places)
+- clean file/utf8 support (same code at many places)
 - use tools for dos/unix file type, encoding conversion ?
 - clean prev_search ?
-- save screen_pos in jump_pos ?
 - begin/end change lines ? (cool except if I want full macro... )
 - save screen pos as well in info file
 - full macro
-
 - arrange text highlight
 - screen/mouse integration with main
-

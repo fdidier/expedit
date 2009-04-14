@@ -698,7 +698,7 @@ void del_line()
 
     // move to line begin
     text_move(line_begin());
-
+    
     int c;
     do {
         // no more line ??
@@ -730,6 +730,10 @@ void text_print()
 
 void insert_indent()
 {
+    // good ?
+    while (text_restart<text_end && text[text_restart]==' ') {
+        text_move(text_restart+1);
+    }
     int pos=compute_pos();
     do {
         text_putchar(' ');
