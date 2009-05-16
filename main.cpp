@@ -698,7 +698,7 @@ void del_line()
 
     // move to line begin
     text_move(line_begin());
-    
+
     int c;
     do {
         // no more line ??
@@ -1159,8 +1159,18 @@ void get_id()
 // else it is the one returned by get_id()
 int text_search_next()
 {
-    if (search_highlight==0) get_id();
-    search_highlight=1;
+    if (search_highlight==0) {
+        get_id();
+        search_highlight=1;
+        // move at end of id instead of looking
+        // for the next one
+        int i = text_restart;
+        while (i<text_end && isletter(text[i])) {
+            i++;
+        }
+        text_move(i);
+        return 1;
+    }
 
     int t = search_next(pattern,text_restart);
     if (t>0)  text_move(t);
@@ -1312,7 +1322,7 @@ void insert()
     while (1)
     {
         int c = text_getchar();
-        if (c==' ') space_tab();else
+//        if (c==' ') space_tab();else
         if (isprint(c)) text_putchar(c);
         else switch (c)
         {
