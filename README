@@ -1,5 +1,6 @@
 The program is still in alpha version.
 Works only on xterm compatible terminal.
+Install Xclip for X selection support.
 Syntax highligh is for C style only and is not perfect.
 
 Commands :
@@ -57,8 +58,6 @@ wheel : scroll view.
 left click : move cursor.
 left click+move : select.
 middle/right click : paste.
-
-X selection support through xclip.
 
 Flags :
 
