@@ -117,7 +117,7 @@ void cache_line_delete(int l)
 // **************************************************************
 // Maintain a list of jump position
 
-// this initialisation doesn't seems to work, check??
+// this intialisation doesn't seems to work, check??
 const int jump_size=10;
 int jump_pos[jump_size]={-1};
 int jump_screen[jump_size];
@@ -287,7 +287,7 @@ void text_apply(struct s_undo op)
 {
     text_internal_move(text_real_position(op.pos));
     if (op.del) {
-//        text_check(op.content.sz);
+        text_check(op.content.sz);
         fi (op.content.sz)
             text_add(op.content[i]);
     } else {
@@ -1616,8 +1616,8 @@ int move_command(char c)
 {
     int search=0;
     int base=1;
+    
     int bad = search_highlight;
-
     switch (c)
     {
         // Search move
@@ -1646,7 +1646,6 @@ int move_command(char c)
 
         default : return 0;
     }
-
     if (bad==0 && search_highlight) add_jump_pos(text_restart);
     if (!search) search_highlight=0;
     if (base) base_pos = compute_pos();
@@ -1935,7 +1934,7 @@ int text_write(char* name)
         if (i==text_gap) i=text_restart;
 
         // convert to utf-8
-        unsigned int temp = text[i];
+        int temp = text[i];
         do {
             s.put(temp & 0xFF);
             temp>>=8;
@@ -2175,7 +2174,7 @@ void save_selection()
 
     for (int i=0; i<selection.sz; i++) {
         // convert to utf-8
-        unsigned int temp = selection[i];
+        int temp = selection[i];
         do {
             s.put(temp & 0xFF);
             temp>>=8;
@@ -2318,4 +2317,3 @@ int main(int argc, char **argv)
     //  Thanks for using this editor !
     exit(0);
 }
-
