@@ -57,6 +57,14 @@ int text_absolute_position(int i)
     else return i - text_restart + text_gap;
 }
 
+int text_compute_position(int begin, int size)
+{
+    int res = begin+size;
+    if (begin<text_gap && res >=text_gap)
+        res += text_restart - text_gap;
+    return res;
+}
+
 // **************************************************************
 // **************************************************************
 
@@ -67,7 +75,7 @@ const int cache_size=50;
 int cache_num[cache_size]={0};
 int cache_pos[cache_size]={0};
 
-// add an EOL to the cache
+// Add an EOL to the cache
 void cache_add(int num, int pos)
 {
     int i = num % cache_size;
@@ -75,6 +83,7 @@ void cache_add(int num, int pos)
     cache_pos[i]=pos;
 }
 
+// Update the cache on EOL insert
 void cache_line_insert(int l, int p)
 {
     int m = l % cache_size;
@@ -93,6 +102,7 @@ void cache_line_insert(int l, int p)
     cache_add(l,p);
 }
 
+// Update the cache on EOL delete
 void cache_line_delete(int l)
 {
     int m = l % cache_size;
@@ -152,14 +162,18 @@ const int text_blocsize = 1024;
 
 // check text size and realloc if needed
 // TODO : use realloc ?
+// TODO : problem with undo ? no because only happen on add char.
 void text_check(int l)
 {
     int gapsize=text_restart - text_gap;
     if (gapsize>=l) return;
 
-    int num=gapsize;
-    while (num<l) num += text_blocsize;
-    int oldsize=text.sz;
+    int num=0;
+    while (gapsize+num<l) {
+        num += text_blocsize;
+    }
+
+    int oldsize=text_end;
     for (int i=0; i<num; i++) text.pb('#');
     for (int i=oldsize-1; i>=text_restart; i--) {
         text[i+num]=text[i];
@@ -287,7 +301,6 @@ void text_apply(struct s_undo op)
 {
     text_internal_move(text_real_position(op.pos));
     if (op.del) {
-//        text_check(op.content.sz);
         fi (op.content.sz)
             text_add(op.content[i]);
     } else {
@@ -535,14 +548,21 @@ int compute_pos()
 // goto a given pos in the current line.
 void line_goto(int pos)
 {
-    int i=line_begin();
-    int p=0;
-    while (p<pos && i<text_end && text[i]!=EOL) {
-        i++;
-        if (i==text_gap) i=text_restart;
-        p++;
-    }
+    int b=line_begin();
+    int e=line_end();
+
+    int i = text_compute_position(b, pos);
+    if (i>e) i = e;
     text_move(i);
+
+//    int i=line_begin();
+//    int p=0;
+//    while (p<pos && i<text_end && text[i]!=EOL) {
+//        i++;
+//        if (i==text_gap) i=text_restart;
+//        p++;
+//    }
+//    text_move(i);
 }
 
 /**************************************************/
@@ -730,10 +750,11 @@ void text_print()
 
 void insert_indent()
 {
-    // good ?
+    // move to first non blanc char
     while (text_restart<text_end && text[text_restart]==' ') {
         text_move(text_restart+1);
     }
+    // add indent.
     int pos=compute_pos();
     do {
         text_putchar(' ');
@@ -745,23 +766,24 @@ void smart_backspace()
 {
     int i=text_gap;
 
-    // remove indent if necessary
-    if (i>0 && text[i-1]==' ') {
-        int pos = compute_pos();
-        do {
-            text_backspace();
-            pos--;
-            i--;
-        } while (i>0 && text[i-1]==' ' && pos % TABSTOP !=0);
-        return;
-    }
-
     // remove trailing char
     if (i>0 && text[i-1]==EOL) {
         do {
             text_backspace();
             i--;
         } while (i>0 && text[i-1]==' ');
+        return;
+    }
+
+    // remove indent if necessary
+    if (i>0 && is_indent()) {
+//    if (i>0 && text[i-1]==' ') {
+        int pos = compute_pos();
+        do {
+            text_backspace();
+            pos--;
+            i--;
+        } while (i>0 && text[i-1]==' ' && pos % TABSTOP !=0);
         return;
     }
 
@@ -809,8 +831,7 @@ void smart_enter()
         return;
     }
 
-    // compute line indent
-    // from current position
+    // compute line indent from current position
     int i=line_begin();
     int pos=0;
     while (i<text_gap && text[i]==' ') {
@@ -843,7 +864,6 @@ void open_line_after()
 void open_line_before()
 {
     text_move(line_begin());
-    text_putchar(EOL);
 
     // compute line indent
     int pos=0;
@@ -851,8 +871,9 @@ void open_line_before()
     while (text[i++]==' ') pos++;
 
     // insert it
-    text_move(text_gap-1);
     for (int j=0; j<pos; j++) text_putchar(' ');
+    text_putchar(EOL);
+    text_move(text_gap-1);
 }
 
 //*************************************************
@@ -955,8 +976,8 @@ void text_complete()
 
 //  find begining of current word
     int i=text_gap-1;
-    while (i>=0 && !isletter(text[i])) i--;
-    while (i>=0 && isletter(text[i])) i--;
+    while (i>=0 && !isalphanum(text[i])) i--;
+    while (i>=0 && isalphanum(text[i])) i--;
     i++;
 
 //  not after a word? return.
@@ -1002,7 +1023,7 @@ void text_complete()
                 pos = search_prev(begin, pos);
                 if (pos>=0) {
                     int i=pos + begin.sz-1;
-                    while (isletter(text[i]) && i<text_gap) {
+                    while (isalphanum(text[i]) && i<text_gap) {
                         end.pb(text[i]);
                         i++;
                     }
@@ -1016,7 +1037,7 @@ void text_complete()
                 pos = search_next(begin, pos);
                 if (pos>=0) {
                     int i=pos;
-                    while (isletter(text[i]) && i<text_end) {
+                    while (isalphanum(text[i]) && i<text_end) {
                         end.pb(text[i]);
                         i++;
                     }
@@ -1044,7 +1065,6 @@ void text_complete()
     return;
 }
 
-
 // Almost same as previous one ...
 void text_search_complete(vector<int> &str)
 {
@@ -1055,7 +1075,6 @@ void text_search_complete(vector<int> &str)
 
 //  do not complete if str is empty
     if (str.empty()) return;
-
 
 //  set begin to str
     if (str[0]!=' ') begin.pb(' ');
@@ -1221,8 +1240,7 @@ int text_search_prev()
         text_message = "search restarted on bottom";
         t = search_prev(pattern,text_end-2);
         if (t>=0) {
-            t = text_absolute_position(t)+size;
-            t = text_real_position(t);
+            t = text_compute_position(t,size);
             text_move(t);
         } else {
             text_message = "word not found";
@@ -1316,7 +1334,9 @@ void space_tab()
 }
 
 // This is what can be recorded in an
-// automatic macro.
+// automatic macro. Always stays
+// on the same line.
+// MAYBE : add some inline movements.
 void insert()
 {
     while (1)
@@ -1853,6 +1873,7 @@ void mouse_select(int b, int e) {
     }
 }
 
+// not used ...
 void mouse_delete(int b, int e)
 {
     undo_flush();
@@ -2089,7 +2110,7 @@ int compute_name(char *argument)
 
 // ********************************************************
 // to remember last line
-// TODO : add screen_first_line ?
+// TODO : add screen_first_line
 // ********************************************************
 
 map<string, int> info;
@@ -2117,6 +2138,9 @@ int load_info()
 
 void save_info()
 {
+    // to deal with multiple instance running
+    // info.clear();
+    // load_info();
     strcpy(temp_name,file_dir);
     strcat(temp_name,".fe/info");
 
