@@ -699,7 +699,7 @@ void screen_highlight()
     highlight_maj();
     highlight_number();
 //    highlight_header();
-    highlight_keywords();
+//    highlight_keywords();
     highlight_string();
     highlight_comment();
     highlight_search();
@@ -1041,11 +1041,11 @@ int mouse_handling()
         compute_scroll_hint();
         screen_compute_wanted();
         screen_highlight();
-        if (select) {
-                text_message="cut copy paste";
-        } else {
-                text_message="";
-        }
+//        if (select) {
+//                text_message="cut copy paste";
+//        } else {
+//                text_message="";
+//        }
         if (select)
            mouse_highlight(f_line,f_pos,l_line,l_pos,line_mode);
         display_message();

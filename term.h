@@ -106,35 +106,35 @@ extern vector<mevent> mevent_stack;
 #define KEY_SAVE        CTRL('S')
 
 #define KEY_DELETE      CTRL('D')
-#define KEY_INSERT      CTRL(']')
+#define KEY_INSERT      201//CTRL(']')
 #define KEY_OLINE       CTRL('O')
 #define KEY_JUSTIFY     CTRL('J')
-#define KEY_CASE        CTRL('Z')
+#define KEY_CASE        CTRL(']')
 
-#define KEY_GOTO        CTRL('G')
+#define KEY_GOTO        CTRL('L')
 
 #define KEY_FIND        CTRL('F')
-#define KEY_FIRST       CTRL('Y')
+#define KEY_AGAIN       CTRL('G')
+#define KEY_FIRST       CTRL('U')
 #define KEY_NEXT        CTRL('N')
 #define KEY_PREV        CTRL('P')
 
 #define KEY_END         CTRL('E')
 #define KEY_BEGIN       CTRL('A')
 
-#define KEY_MARK        CTRL('@')
 #define KEY_CUT         CTRL('X')
 #define KEY_COPY        CTRL('C')
 #define KEY_PRINT       CTRL('V')
 
-#define KEY_UNDO        CTRL('U')
+#define KEY_UNDO        CTRL('Z')
 #define KEY_REDO        CTRL('R')
 #define KEY_TILL        CTRL('T')
 
-#define KEY_KWORD       CTRL('K')
-#define KEY_DEND        CTRL('L')
+#define KEY_KWORD       CTRL('W')
+#define KEY_DEND        CTRL('K')
 
 #define KEY_BWORD       CTRL('B')
-#define KEY_FWORD       CTRL('W')
+#define KEY_FWORD       CTRL('Y')
 
 #define KEY_JUMP        CTRL('\\')
 
@@ -142,6 +142,7 @@ extern vector<mevent> mevent_stack;
 #define KEY_NULL        200
 
 // special commands
+#define KEY_MARK        200//CTRL('@')
 
 // arrow key
 #define KEY_DOWN        128

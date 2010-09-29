@@ -1,3 +1,9 @@
+- find the bug.
+- deal correctly with eof
+- output text with no trailing white.
+- use text_first_line to recover the exact screen position.
+
+
 - clean file/utf8 support (same code at many places)
 - use tools for dos/unix file type, encoding conversion ?
 - clean prev_search ?

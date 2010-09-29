@@ -24,7 +24,6 @@ void term_get_size(uint &x, uint &y)
 
         x = ws.ws_row;
         y = ws.ws_col;
-//        y--;
 }
 
 void reset_input_mode (void)
@@ -34,6 +33,11 @@ void reset_input_mode (void)
         SHOW_CURSOR;
         NORMAL_VIDEO;
         ENDSEQ;
+        uint x;
+        uint y;
+        term_get_size(x, y);
+        MOVE(x, 0);
+        CLEAR_EOL;
         fflush(stdout);
 }
 
@@ -107,11 +111,17 @@ int  tilde_escape_sequence(char c)
         int a;
 
         switch (c) {
+                case '1':
+                        a = KEY_BEGIN;
+                        break;
                 case '2':
                         a = KEY_INSERT;
                         break;
                 case '3':
                         a = KEY_DELETE;
+                        break;
+                case '4':
+                        a = KEY_END;
                         break;
                 case '5':
                         a = PAGE_UP;
@@ -262,7 +272,7 @@ int term_getchar_internal()
 
 int term_getchar()
 {
-    int ch= term_getchar_internal();
+    int ch = term_getchar_internal();
     uchar c = ch & 0xFF;
 
     if ((c >> 7)&1) {

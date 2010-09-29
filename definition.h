@@ -47,12 +47,13 @@ typedef vector<string>  VS;
 #define isbig(c)     ((c)>='A' && (c)<='Z')
 #define isnum(c)     ((c)>='0' && (c)<='9')
 #define isletter(c)  (issmall(c) || isbig(c) || (c)=='_' || (uchar)(c)>=128)
-#define isspecial(c) (!isletter(c) && !isnum(c) && (uchar)(c)>32 && (c)!=' ')
+#define isspecial(c)  (!isletter(c) && !isnum(c) && (uchar)(c)>32 && (c)!=' ')
+#define isalphanum(c) (isletter(c) || isnum(c))
 
 #define EOL          '\n'
 
-#define TABSTOP    4
-#define JUSTIFY    70
+#define TABSTOP    2
+#define JUSTIFY    80
 
 /* function declaration */
 extern vector<int>   text;

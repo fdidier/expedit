@@ -8,42 +8,43 @@ Commands :
 ^Q Quit
 ^S Save
 
-^U Undo
+^Z Undo
 ^R Redo/Repeat
 ^T repeat Till current line/occurence
 
-^A (begin) begin of line
-^E (end) end of line
-^B Back one word
-^W forward one Word
+^A (begin) begin of line.
+^E (end) end of line.
+^B Back one word.
+^Y forward one word.
+
+^L goto given Line number (0 = last one).
 
 ^D (del) del character under cursor
 ^H (backspace) del character before cursor
+^W kill Word before
+^K Kill until end of line.
 
-^L del to end of Line, what is Left.
-^K Kill word before
-
-^@ (^space) start Selection
 ^C copy line(s)/selection
 ^X cut line(s)/selection
-^V paste at cursor position
+^V paste at cursor position (TODO: in the current implementation
+   is is used only to past line, so we can change it behaviour for this)
 
-^F Find : enter search pattern (previous one if left empty)
-^Y search first (current or id under cursor)
-^N search Next (current or id under cursor)
-^P search Previous (current or id under cursor)
+^F Find : enter search pattern (previous one if left empty).
+^G search aGain.
+^U search first (current or id under cursor), go Up.
+^N search Next (current or id under cursor).
+^P search Previous (current or id under cursor).
 
-^\ Jump to previous interesting cursor position
+^\ jump to previous interesting cursor position
 
-^G Goto line (0 is the last one)
 ^J Justify
 ^I (tab) Indent/complete
 ^M (enter)
 ^O Open line before
-^Z change case and avance right
+^] change case and avance right
 
-^[ (esc) cancel current command
-^] (insert) insert next char litteraly
+//^[ (esc) cancel current command
+^] (insert) insert next char litteraly. (Fix).
 
 ^_ ??
 ^^ ??
@@ -73,4 +74,3 @@ fe store last files position in .fe/info
 Uppon execution, selection is read, and if the file
 appear in info, the cursor position is the same as
 last time.
-
