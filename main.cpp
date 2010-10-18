@@ -33,7 +33,6 @@ string  text_message;
 // we want to restore the screen later exactly as it was.
 int first_screen_line = 0;
 
-
 // Indicate if the text as changed and is saved.
 int     text_saved = 1;
 int     text_modif = 0;
@@ -328,7 +327,7 @@ void text_internal_move(int i) {
             text_l++;
             cache_add(text_l, text_gap);
         }
-        text[text_gap] = text[text_restart];        
+        text[text_gap] = text[text_restart];
         // This do not work if text_gap == text_restart.
         // Another solution would be to never allow equality.
         // text[text_restart] = '#';
@@ -983,6 +982,7 @@ int match(vector<int> &s, int i)
     if (i==text_end) return 0;
 
     // space at the end
+    if (i>=text_gap && i<text_restart) i=text_restart;
     if (j<s.sz && isletter(text[i])) return 0;
 
     // return correct pos
@@ -1484,8 +1484,6 @@ void text_next_word()
     int i=text_restart;
     while (i<text_end && (!isletter(text[i]))) i++;
     while (i<text_end && isletter(text[i])) i++;
-//    while (i<text_end && isletter(text[i])) i++;
-//    while (i<text_end && (!isletter(text[i]))) i++;
     text_move(i);
 }
 
@@ -1497,8 +1495,8 @@ void text_next_letter()
     text_move(i);
 }
 
-/******************************************************************/
-/******************************************************************/
+/******************************************************************************/
+/******************************************************************************/
 
 // Justify the whole paragraph where
 // a paragraph is a set of line that start with a letter (no white)
@@ -1535,8 +1533,8 @@ void justify()
     while (i<text_end && text[i]!=EOL) {
         if (text[i]==' ') b=i;
         count++;
-        // Line length with EOL <= JUSTIFY.
-        if (count >= JUSTIFY) {
+        // Line length without EOL <= JUSTIFY.
+        if (count > JUSTIFY) {
             if (b>0) {
               text_move(b);
               text_delete();
@@ -2026,9 +2024,27 @@ int text_write(char* name)
     ofstream s(name,ios_base::trunc);
     if (!s) return 0;
 
+    int trailing_space = 0;
     fi (text_end) {
         // jump gap if needed
-        if (i==text_gap) i=text_restart;
+        if (i == text_gap) i = text_restart;
+        if (i == text_end) {
+          break;
+        }
+
+        // Remove trailing space at write time.
+        if (text[i] == ' ') {
+          trailing_space++;
+          continue;
+        } else {
+          if (text[i] != EOL) {
+            while (trailing_space > 0) {
+              s.put(' ');
+              trailing_space--;
+            }
+          }
+          trailing_space = 0;
+        }
 
         // convert to utf-8
         unsigned int temp = text[i];
@@ -2184,8 +2200,7 @@ int compute_name(char *argument)
 }
 
 // ********************************************************
-// to remember last line
-// TODO : add screen_first_line
+// To remember last line on repoen.
 // ********************************************************
 
 struct s_info {
@@ -2410,13 +2425,17 @@ int main(int argc, char **argv)
     signal(SIGTERM, terminate);
 
     // move to given line arg or to saved pos
-    if (start_line>=0) {
-      text_move(text_line_begin(start_line-1));
+    if (start_line >= 0) {
+      text_move(text_line_begin(start_line - 1));
     } else {
       int pos = load_info();
       text_move_to_absolute(pos);
     }
-    base_pos=compute_pos();
+    // Fix a bug when pos > text_len
+    if (text_restart == text_end) {
+      text_move(0);
+    }
+    base_pos = compute_pos();
 
     // init screen
     // switch to fullscreen mode

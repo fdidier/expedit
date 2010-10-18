@@ -1,9 +1,9 @@
 #include "definition.h"
 #include "term.h"
 
-/************************************************************************/
-/* Screen Handling                                                      */
-/************************************************************************/
+/*****************************************************************************/
+/* Screen Handling                                                           */
+/*****************************************************************************/
 
 /* screen dimension */
 uint     screen_lines;
@@ -23,56 +23,53 @@ uint     **color_wanted;
 uint     screen_wanted_i;
 uint     screen_wanted_j;
 
-uint     first_line;
+// Line number of the first line of the screen that we want.
+uint first_line;
 
 /* Other variables */
 int screen_scroll_hint;
 
-/************************************************************************/
-/* screen_real and screen_wanted allocation functions                   */
-/************************************************************************/
+/*****************************************************************************/
+/* screen allocation functions (2 dim array)                                 */
+/*****************************************************************************/
 
-uint     **screen_alloc_internal(int i, int j)
+uint **screen_alloc_internal(int i, int j)
 {
-        uint *temp;
-        uint **array;
-        int k;
+  uint *temp;
+  uint **array;
+  int k;
 
-        temp  = (uint *)  malloc(i*j*sizeof(int));
-        array = (uint **) malloc(i*sizeof(int *));
+  temp  = (uint *)  malloc(i * j * sizeof(int));
+  array = (uint **) malloc(i * sizeof(int *));
 
-        for (k=0; k<i; k++) {
-                array[k]= &temp[k*j];
-                for (int l=0; l<j; l++) array[k][l]=0;
-        }
+  for (k = 0; k < i; k++) {
+    array[k] = &temp[k * j];
+    for (int l = 0; l < j; l++) {
+      array[k][l] = 0;
+    }
+  }
 
-        return array;
+  return array;
 }
 
-void    screen_alloc()
+void screen_free_internal(uint **a)
 {
-        if (screen_wanted) {
-                free(screen_wanted[0]);
-                free(screen_wanted);
-        }
-        if (color_wanted) {
-                free(color_wanted[0]);
-                free(color_wanted);
-        }
+  if (a) {
+    free(a[0]);
+    free(a);
+  }
+}
 
-        if (screen_real) {
-                free(screen_real[0]);
-                free(screen_real);
-        }
-        if (color_real) {
-                free(color_real[0]);
-                free(color_real);
-        }
-
-        screen_wanted = screen_alloc_internal(screen_lines, screen_columns+1);
-        color_wanted = screen_alloc_internal(screen_lines, screen_columns+1);
-        screen_real = screen_alloc_internal(screen_lines, screen_columns+1);
-        color_real = screen_alloc_internal(screen_lines, screen_columns+1);
+void screen_alloc()
+{
+  screen_free_internal(screen_wanted);
+  screen_free_internal(color_wanted);
+  screen_free_internal(screen_real);
+  screen_free_internal(color_real);
+  screen_wanted = screen_alloc_internal(screen_lines, screen_columns+1);
+  color_wanted = screen_alloc_internal(screen_lines, screen_columns+1);
+  screen_real = screen_alloc_internal(screen_lines, screen_columns+1);
+  color_real = screen_alloc_internal(screen_lines, screen_columns+1);
 }
 
 /************************************************************************/
@@ -82,18 +79,16 @@ void    screen_alloc()
 /* Clear the real screen */
 void screen_clear()
 {
-        CLEAR_ALL;
-
-        for (uint i=0; i<screen_lines; i++) {
-            for (uint j=0; j<screen_columns; j++) {
-                screen_real[i][j]='\n';
-                color_real[i][j]=0;
-            }
-        }
-
-        HOME;
-        screen_real_i=0;
-        screen_real_j=0;
+  CLEAR_ALL;
+  for (uint i=0; i < screen_lines; i++) {
+    for (uint j=0; j < screen_columns; j++) {
+      screen_real[i][j] = EOL;
+      color_real[i][j] = 0;
+    }
+  }
+  HOME;
+  screen_real_i = 0;
+  screen_real_j = 0;
 }
 
 /* Change the real cursor position if necessary */
@@ -236,28 +231,28 @@ void screen_make_it_real()
 // Function to call when the real screen is equal to the wanted one
 void screen_done()
 {
-    // put the cursor as wanted
-    screen_move_curs(screen_wanted_i, screen_wanted_j);
-    screen_scroll_hint = 0;
+  // Put the cursor as wanted.
+  screen_move_curs(screen_wanted_i, screen_wanted_j);
+  screen_scroll_hint = 0;
 
-    // swap the two screen array to update screen real
-    uint **temp = screen_real;
-    screen_real = screen_wanted;
-    screen_wanted = temp;
+  // Swap the two screen array to update screen real.
+  uint **temp = screen_real;
+  screen_real = screen_wanted;
+  screen_wanted = temp;
 
-    // swap the two color arrays
-    temp = color_real;
-    color_real = color_wanted;
-    color_wanted = temp;
+  // Swap the two color arrays.
+  temp = color_real;
+  color_real = color_wanted;
+  color_wanted = temp;
 
-    // make the change
-    fflush(stdout);
+  // Flush all the chars.
+  fflush(stdout);
 }
 
 
-/*********************************************************************************/
-/* Specific functions for displaying a text structure                            */
-/*********************************************************************************/
+/*****************************************************************************/
+/* Specific functions for displaying a text structure                         /
+/*****************************************************************************/
 
 // if there is line number
 int shift=0;
@@ -266,9 +261,9 @@ int opt_line=1;
 // set first_line using the hint
 void screen_set_first_line(int hint)
 {
-    if (hint<0) hint=0;
-    if (hint >= text_lines) hint=text_lines-1;
-    first_line = hint;
+  if (hint<0) hint=0;
+  if (hint >= text_lines) hint=text_lines-1;
+  first_line = hint;
 }
 
 // Compute the first line displayed according to
@@ -395,60 +390,35 @@ void screen_compute_wanted()
     }
 }
 
-// **************************************************************************
-// **************************************************************************
+// ****************************************************************************
+// ****************************************************************************
 
 void display_message()
 {
-    if (display_pattern) {
-        int j=0;
-        while (j<pattern.sz && j<screen_columns) {
-            if (pattern[j]==EOL) pattern[j]='J';
-            screen_wanted[screen_lines-1][j] = pattern[j];
-            color_wanted[screen_lines-1][j] = DEFAULT_COLOR | REVERSE;
-            j++;
-        }
-        screen_wanted[screen_lines-1][j]=EOL;
-        color_wanted[screen_lines-1][j]=0;
-    }
-
-    if (text_message.empty()) return;
-
-//    // clear end of line
-//    int j=0;
-//    while (j<screen_columns && screen_wanted[screen_lines-1][j]!=EOL) j++;
-//    while (j<screen_columns) {
-//        screen_wanted[screen_lines-1][j]=' ';
-//        color_wanted[screen_lines-1][j]=0;
-//        j++;
-//    }
-//
-//    // replace by message
-//    j=0;
-//    int n=text_message.sz-1;
-//    screen_wanted[screen_lines-1][screen_columns]=EOL;
-//    color_wanted[screen_lines-1][screen_columns]=0;
-//    while (j<text_message.sz && j<screen_columns) {
-//        if (text_message[n-j]==EOL) text_message[n-j]='J';
-//        screen_wanted[screen_lines-1][screen_columns-1-j] = text_message[n-j];
-//        color_wanted[screen_lines-1][screen_columns-1-j] = BLACK | REVERSE;
-//        j++;
-//    }
-//    if (j<screen_columns) {
-//        screen_wanted[screen_lines-1][screen_columns-1-j]=' ';
-//        color_wanted[screen_lines-1][screen_columns-1-j]=0;
-//    }
-
-    // begin of line version
+  if (display_pattern) {
     int j=0;
-    while (j<text_message.sz && j<screen_columns) {
-        if (text_message[j]==EOL) text_message[j]='J';
-        screen_wanted[screen_lines-1][j] = text_message[j];
+    while (j<pattern.sz && j<screen_columns) {
+      if (pattern[j]==EOL) pattern[j]='J';
+        screen_wanted[screen_lines-1][j] = pattern[j];
         color_wanted[screen_lines-1][j] = DEFAULT_COLOR | REVERSE;
         j++;
-    }
-    screen_wanted[screen_lines-1][j]=EOL;
-    color_wanted[screen_lines-1][j]=0;
+     }
+     screen_wanted[screen_lines-1][j]=EOL;
+     color_wanted[screen_lines-1][j]=0;
+  }
+
+  if (text_message.empty()) return;
+
+  // begin of line version
+  int j=0;
+  while (j<text_message.sz && j<screen_columns) {
+    if (text_message[j]==EOL) text_message[j]='J';
+    screen_wanted[screen_lines-1][j] = text_message[j];
+    color_wanted[screen_lines-1][j] = DEFAULT_COLOR | REVERSE;
+    j++;
+  }
+  screen_wanted[screen_lines-1][j]=EOL;
+  color_wanted[screen_lines-1][j]=0;
 }
 
 // ***********************************************************
@@ -460,16 +430,50 @@ void display_message()
 // many of the highlight is just line based...
 // remenber if line didn't change ??
 
+void add_limit_bar() {
+  int first_limit = shift + 81;
+  int limit = shift + 101;
+  if (limit > screen_columns) {
+    limit = first_limit;
+    if (limit > screen_columns) {
+      return;
+    }
+  }
+  fi (screen_lines) {
+    int eol = 0;
+    int j = 0;
+    for (; j < limit; j++) {
+      if (eol || screen_wanted[i][j] == EOL) {
+        eol = 1;
+        screen_wanted[i][j] = ' ';
+        color_wanted[i][j] = DEFAULT_COLOR;
+        if (j == first_limit - 1) {
+          screen_wanted[i][j] = '|';
+          color_wanted[i][j] = YELLOW;
+      //    color_wanted[i][j] = YELLOW | REVERSE;
+        }
+      }
+    }
+    if (eol) {
+      screen_wanted[i][j] = EOL;
+      screen_wanted[i][j-1] = '|';
+      color_wanted[i][j-1] = YELLOW;
+      //color_wanted[i][j-1] = YELLOW | REVERSE;
+    }
+  }
+}
+
 void highlight_clear()
 {
     fi (screen_lines)
-        fj (screen_columns)
+        fj (screen_columns) {
             if (j+1<shift) {
                 color_wanted[i][j]=YELLOW;
-//                if (i==screen_wanted_i) color_wanted[i][j] |= REVERSE;
+                // if (i==screen_wanted_i) color_wanted[i][j] |= REVERSE;
             } else {
                 color_wanted[i][j]=DEFAULT_COLOR;
             }
+          }
 }
 
 void highlight_comment()
@@ -482,7 +486,7 @@ void highlight_comment()
         int first=1;
         for (int j=shift; j<screen_columns; j++)
         {
-            if (screen_wanted[i][j]==EOL) break;
+            if (screen_wanted[i][j] == EOL) break;
 
             char c=screen_wanted[i][j];
             if (first) {
@@ -524,6 +528,7 @@ void highlight_string()
     }
 }
 
+// Highlight line with a char on the first line.
 void highlight_header()
 {
     fi(screen_lines) {
@@ -540,25 +545,25 @@ void highlight_header()
 
 void highlight_maj()
 {
-    fi(screen_lines) {
-        for (int j=shift; j<screen_columns; j++) {
-            if (isbig(screen_wanted[i][j]) &&
-               (j==shift || !isletter(screen_wanted[i][j-1]))) {
-                    do {
-                        color_wanted[i][j] = MAGENTA;
-                        j++;
-                    } while (j<screen_columns && isletter(screen_wanted[i][j]));
-            }
-        }
+  fi (screen_lines) {
+    for (int j=shift; j<screen_columns; j++) {
+      if (isbig(screen_wanted[i][j]) &&
+          (j==shift || !isletter(screen_wanted[i][j-1]))) {
+        do {
+          color_wanted[i][j] = MAGENTA;
+          j++;
+        } while (j<screen_columns && isletter(screen_wanted[i][j]));
+      }
     }
+  }
 }
 
 void highlight_number()
 {
-    fi(screen_lines)
-        for (int j=shift; j<screen_columns; j++)
-            if (isnum(screen_wanted[i][j]))
-                color_wanted[i][j] = RED;
+  fi(screen_lines)
+    for (int j=shift; j<screen_columns; j++)
+       if (isnum(screen_wanted[i][j]))
+         color_wanted[i][j] = RED;
 }
 
 // TODO : avoid comments and string
@@ -658,38 +663,29 @@ void highlight_keywords()
 
 void highlight_search()
 {
-    if (search_highlight==0)
-        return;
+  if (search_highlight == 0) return;
 
-    int size = pattern.sz;
-    if (size==0) return;
+  int size = pattern.sz;
+  if (size == 0) return;
 
-    if (pattern[0]==' ') size--;
-    if (pattern[pattern.sz-1]==' ') size--;
+  if (pattern[0] == ' ') size--;
+  if (pattern[pattern.sz - 1] == ' ') size--;
 
-    fi (screen_lines) {
-        int begin = text_line_begin(first_line+i);
-        if (begin==text_gap) begin = text_restart;
+  fi (screen_lines) {
+    int begin = text_line_begin(first_line + i);
 
-        for (int j=shift; j<screen_columns; j++) {
-
-            int pos = begin + j-shift;
-            if (begin<=text_gap) {
-                if (pos>=text_gap) {
-                    pos += text_restart-text_gap;
-                }
-            }
-
-            if (match(pattern,pos)) {
-                fk (size) {
-                    color_wanted[i][j]|=REVERSE;
-                    j++;
-                    if (j>= screen_columns) break;
-                }
-            }
-
+    for (int j = shift; j < screen_columns; j++) {
+      // Find the real begin in the text.
+      int pos = text_compute_position(begin, j - shift);
+      if (match(pattern, pos)) {
+        fk (size) {
+          color_wanted[i][j] |= REVERSE;
+          j++;
+          if (j >= screen_columns) break;
         }
+      }
     }
+  }
 }
 
 void screen_highlight()
@@ -703,12 +699,13 @@ void screen_highlight()
     highlight_string();
     highlight_comment();
     highlight_search();
+    add_limit_bar();
 }
 
 
-/********************************************************************************/
-/* Function called on a screen resize event                                     */
-/********************************************************************************/
+/*****************************************************************************/
+/* Function called on a screen resize event                                  */
+/*****************************************************************************/
 
 void screen_sigwinch_handler(int sig)
 {
@@ -717,104 +714,102 @@ void screen_sigwinch_handler(int sig)
         screen_redraw();
 }
 
-/********************************************************************************/
-/* Interface Functions                                                          */
-/********************************************************************************/
+/*****************************************************************************/
+/* Interface Functions                                                       */
+/*****************************************************************************/
 
 void screen_init()
 {
-        int color = GREEN;
-        keyword["if"]=color;
-        keyword["fi"]=color;
-        keyword["fj"]=color;
-        keyword["else"]=color;
-        keyword["return"]=color;
-        keyword["break"]=color;
-        keyword["continue"]=color;
-        keyword["switch"]=color;
-        keyword["default"]=color;
-        keyword["case"]=color;
-        keyword["while"]=color;
-        keyword["do"]=color;
-        keyword["for"]=color;
-        keyword["struct"]=color;
-        keyword["sizeof"]=color;
-        keyword["new"]=color;
-        keyword["delete"]=color;
+  int color = GREEN;
+  keyword["if"]=color;
+  keyword["fi"]=color;
+  keyword["fj"]=color;
+  keyword["else"]=color;
+  keyword["return"]=color;
+  keyword["break"]=color;
+  keyword["continue"]=color;
+  keyword["switch"]=color;
+  keyword["default"]=color;
+  keyword["case"]=color;
+  keyword["while"]=color;
+  keyword["do"]=color;
+  keyword["for"]=color;
+  keyword["struct"]=color;
+  keyword["sizeof"]=color;
+  keyword["new"]=color;
+  keyword["delete"]=color;
 
-//        keyword["unsigned"]=GREEN;
-//        keyword["short"]=GREEN;
-//        keyword["int"]=GREEN;
-//        keyword["uint"]=GREEN;
-//        keyword["char"]=GREEN;
-//        keyword["string"]=GREEN;
-//        keyword["double"]=GREEN;
-//        keyword["void"]=GREEN;
+//  keyword["unsigned"]=GREEN;
+//  keyword["short"]=GREEN;
+//  keyword["int"]=GREEN;
+//  keyword["uint"]=GREEN;
+//  keyword["char"]=GREEN;
+//  keyword["string"]=GREEN;
+//  keyword["double"]=GREEN;
+//  keyword["void"]=GREEN;
 
-        /* Initialize the terminal */
-        term_init();
+  /* Initialize the terminal */
+  term_init();
 
-        /* SIGWINCH signal handling */
-        (void) signal(SIGWINCH, screen_sigwinch_handler);
+  /* SIGWINCH signal handling */
+  (void) signal(SIGWINCH, screen_sigwinch_handler);
 
-        /* Get terminal dimension */
-        term_get_size(screen_lines, screen_columns);
+  /* Get terminal dimension */
+  term_get_size(screen_lines, screen_columns);
 
-        /* Allocating the screen array */
-        screen_alloc();
+  /* Allocating the screen array */
+  screen_alloc();
 
-        /* clear real screen */
-        screen_clear();
+  /* clear real screen */
+  screen_clear();
 }
 
 void screen_redraw()
 {
-        screen_compute_wanted();
-        screen_highlight();
-        display_message();
-        highlight_search();
+  screen_compute_wanted();
+  screen_highlight();
+  display_message();
 
-        term_reset();
-        screen_clear();
-        screen_dump_wanted(0,screen_lines);
-        screen_done();
+  term_reset();
+  screen_clear();
+  screen_dump_wanted(0,screen_lines);
+  screen_done();
 }
 
 void screen_refresh()
 {
-        compute_scroll_hint();
-        screen_compute_wanted();
-        screen_highlight();
-        display_message();
-        highlight_search();
-        screen_make_it_real();
-        screen_done();
+  compute_scroll_hint();
+  screen_compute_wanted();
+  screen_highlight();
+  display_message();
+  screen_make_it_real();
+  screen_done();
 }
 
 int saved_line;
 
 int screen_get_first_line()
 {
-    return first_line;
+  return first_line;
 }
 
 void screen_ppage() {
-    int dest = text_l - screen_lines/2;
-    if (dest < 0) dest=text_l;
-    text_move(text_line_begin(dest));
-    screen_set_first_line(dest - screen_lines/2);
+  int dest = text_l - screen_lines/2;
+  if (dest < 0) dest=text_l;
+  text_move(text_line_begin(dest));
+  screen_set_first_line(dest - screen_lines/2);
 }
 
 void screen_npage() {
-    int dest = text_l + screen_lines/2;
-    if (dest >= text_lines) dest=text_l;
-    text_move(text_line_begin(dest));
-    screen_set_first_line(dest - screen_lines/2);
+  int dest = text_l + screen_lines/2;
+  if (dest >= text_lines) dest=text_l;
+  text_move(text_line_begin(dest));
+  screen_set_first_line(dest - screen_lines/2);
 }
 
 void screen_ol() {
-    if (opt_line) opt_line=0;
-    else opt_line=1;
+  if (opt_line) opt_line=0;
+  else opt_line=1;
 }
 
 string debug;
@@ -831,7 +826,7 @@ string debug;
 // - left click (w/wo move) start selection
 // - left click on number : select whole line.
 //
-// on selection
+// on selection [NOT THE CASE ANYMORE]
 // - left click inside, paste selection at cursor
 // - right click inside, del selection
 
@@ -1061,6 +1056,8 @@ int mouse_handling()
 
 int mouse = 0;
 vector<int> buffer;
+
+// Refresh the screen as a side effect.
 int screen_getchar() {
     int c;
     if (!buffer.empty()) {

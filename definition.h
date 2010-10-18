@@ -64,6 +64,7 @@ extern int      undo_pos;
 extern int      text_restart;
 extern int      text_end;
 extern void     text_move(int);
+extern int      text_compute_position(int begin, int size);
 extern int      text_line_begin(int);
 extern int      text_save();
 extern void     line_goto(int);

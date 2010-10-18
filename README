@@ -24,7 +24,7 @@ Commands :
 ^W kill Word before
 ^K Kill until end of line.
 
-^C copy line(s)/selection
+^C Copy line(s)/selection
 ^X cut line(s)/selection
 ^V paste at cursor position (TODO: in the current implementation
    is is used only to past line, so we can change it behaviour for this)
@@ -44,7 +44,7 @@ Commands :
 ^] change case and avance right
 
 //^[ (esc) cancel current command
-^] (insert) insert next char litteraly. (Fix).
+^] (insert) insert next char litteraly. (TODO: Fix).
 
 ^_ ??
 ^^ ??

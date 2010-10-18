@@ -1,14 +1,11 @@
-- find the bug.
 - deal correctly with eof
-- output text with no trailing white.
-- use text_first_line to recover the exact screen position.
-
-
+- deal correctly with ^X on the last line.
 - clean file/utf8 support (same code at many places)
 - use tools for dos/unix file type, encoding conversion ?
 - clean prev_search ?
-- begin/end change lines ? (cool except if I want full macro... )
-- save screen pos as well in info file
 - full macro
 - arrange text highlight
+- shift + arrow select ? + different behavior for ^X^C^V afterwards.
+- different behavior for ^X^C^V on mouse select ?
 - screen/mouse integration with main
+- add command to display position line/column vs total
