@@ -8,4 +8,3 @@
 - shift + arrow select ? + different behavior for ^X^C^V afterwards.
 - different behavior for ^X^C^V on mouse select ?
 - screen/mouse integration with main
-- add command to display position line/column vs total

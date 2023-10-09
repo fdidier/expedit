@@ -1,76 +1,95 @@
-The program is still in alpha version.
-Works only on xterm compatible terminal.
-Install Xclip for X selection support.
-Syntax highligh is for C style only and is not perfect.
+The program may not work on all terminals.
+It uses xclip for X selection support.
+Syntax highlight is not language dependant and isn't perfect.
 
-Commands :
+Commands:
 
 ^Q Quit
 ^S Save
-
 ^Z Undo
-^R Redo/Repeat
-^T repeat Till current line/occurence
+^Y Redo
+
+^R Repeat last inline edit (only deletion + added chars on the same line without cursors move).
+^T repeat Till current line/occurence (useful for replace with ^L).
 
 ^A (begin) begin of line.
 ^E (end) end of line.
-^B Back one word.
-^Y forward one word.
 
-^L goto given Line number (0 = last one).
+^L goto given Line number (empty = last one, ^L again = begin).
+   It also display the current position while waiting for numbers.
+   You can also use line:position or :position format and negative line will
+   count from the end of the file, so ^L-1^M will go to the last line.
+   Note that 0 will also go there.
 
 ^D (del) del character under cursor
 ^H (backspace) del character before cursor
+^K Kill to end of line.
+^B kill to Begin of line.
 ^W kill Word before
-^K Kill until end of line.
 
-^C Copy line(s)/selection
-^X cut line(s)/selection
-^V paste at cursor position (TODO: in the current implementation
-   is is used only to past line, so we can change it behaviour for this)
+^C Copy line(s) -- It advances to the beginning of next line.
+^X cut line(s) -- It advances to the beginning of next line.
+^V paste at cursor position the text grabbed by the last(s) ^C or ^X.
+   If ^V just follow a series of ^X, then the previous selection is used.
+   This is useful for replacing lines.
 
 ^F Find : enter search pattern (previous one if left empty).
-^G search aGain.
+^G search aGain (same as ^F with empty pattern).
 ^U search first (current or id under cursor), go Up.
 ^N search Next (current or id under cursor).
 ^P search Previous (current or id under cursor).
 
-^\ jump to previous interesting cursor position
+^\ jump to previous interesting cursor position.
 
-^J Justify
-^I (tab) Indent/complete
+^J Justify (uses a few heuristics, useful for // comments).
+^I (tab) Indent if only space before or complete (super useful).
+
 ^M (enter)
-^O Open line before
-^] change case and avance right
+^O Open line before.
 
-//^[ (esc) cancel current command
-^] (insert) insert next char litteraly. (TODO: Fix).
+(insert) Insert next keystroke.
 
+
+// Doubtfull commands.
+^] change case and avance right (useful?).
+^[ (esc) cancel current command (useful?).
 ^_ ??
 ^^ ??
 
 (arrow keys) move around
 (pgup) move by an half screen up
 (pgdown) move by an half screen down
+(shift/ctrl + lr arrow keys) forward/backward word
+(shift/ctrl + ud arrow keys) pgup/pgdown.
 
-Mouse :
 
-wheel : scroll view.
-left click : move cursor.
-left click+move : select.
+Mouse:
+
+wheel: scroll view.
+left click: move cursor on text, select line on line number.
+left click + move : select.
+left click on cursor position (i.e. double left click): select word.
 middle/right click : paste.
 
-Flags :
+Toggles:
 
 F1  line number (+redraw)
 F2  auto indent
 
-Notes :
+Notes:
 
 fe store a file last state (previous save) in .fe/file
-fe store last selection in .fe/selection
 fe store last files position in .fe/info
+fe store last selection in ~/.fe/selection
 
-Uppon execution, selection is read, and if the file
-appear in info, the cursor position is the same as
-last time.
+Uppon execution, selection is read, and if the file appear in info, the cursor
+and screen position are the same as last time.
+
+What is different?
+
+- When changin line, the cursor base position do not behave like in the other
+editors. This allow for easy "block" editing.
+
+- The repeat/till mechanism is very powerful (but probably not polished
+  enough). Doing replaces with ^N^R is really quick and nice.
+
